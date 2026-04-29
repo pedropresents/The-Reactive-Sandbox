@@ -995,6 +995,17 @@
 
     .s2-screen::-webkit-scrollbar { width: 0; }
 
+    /* Show a thin scrollbar when S2 is inside the desktop device frame */
+    .s3-device-frame .s2-screen::-webkit-scrollbar       { width: 5px; }
+    .s3-device-frame .s2-screen::-webkit-scrollbar-track { background: transparent; }
+    .s3-device-frame .s2-screen::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+    .s3-device-frame .s2-screen::-webkit-scrollbar-thumb:hover {
+      background: var(--text-secondary);
+    }
+
     /* 1. Wordmark
        Spec: "14px, weight 600, --text-secondary. Margin-top: 48px." */
     .s2-wordmark {
@@ -1080,6 +1091,9 @@
       margin-top: 24px;
       line-height: 1.5;
       max-width: 320px;
+      max-height: 120px;
+      overflow: hidden;
+      transition: opacity 250ms ease, max-height 300ms ease, margin-top 300ms ease;
     }
 
     /* 4. Delta indicator
@@ -1092,6 +1106,9 @@
       font-weight: 500;
       margin-top: 8px;
       text-align: center;
+      max-height: 40px;
+      overflow: hidden;
+      transition: opacity 250ms ease, max-height 300ms ease, margin-top 300ms ease;
       /* color set inline */
     }
 
@@ -1102,6 +1119,40 @@
       flex: 1;
       min-height: 16px;
       max-height: 48px;
+    }
+
+    /* Collapsed state for status + delta when breakdown is open */
+    .s2-collapsed {
+      opacity: 0 !important;
+      max-height: 0 !important;
+      margin-top: 0 !important;
+    }
+
+    /* Close row at the bottom of the accordion */
+    .s2-accordion-close {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .s2-accordion-close-btn {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      padding: 4px 12px;
+      border-radius: 4px;
+      transition: background 150ms ease, color 150ms ease;
+    }
+
+    .s2-accordion-close-btn:hover {
+      background: var(--surface-hover);
+      color: var(--text-primary);
     }
 
     /* 5. Drill-down tap target
@@ -2462,6 +2513,9 @@ function buildS2Html(c) {
                   No numbers beyond the bar." -->
       <div class="s2-accordion" id="s2-accordion">
         ${factorRowsHtml}
+        <div class="s2-accordion-close">
+          <button class="s2-accordion-close-btn" id="s2-accordion-close">Close ↑</button>
+        </div>
       </div>
 
       <!-- 6. Share button — conditional on tierUpgrade
@@ -2524,10 +2578,17 @@ function initS2(c) {
   const drillBtn  = document.getElementById('s2-drill-btn');
   const accordion = document.getElementById('s2-accordion');
   if (drillBtn && accordion) {
-    drillBtn.addEventListener('click', () => {
-      accordion.classList.toggle('open');
+    const toggleBreakdown = () => {
+      const isOpen = accordion.classList.toggle('open');
       drillBtn.classList.toggle('open');
-    });
+      const statusEl = document.querySelector('.s2-status-sentence');
+      const deltaEl  = document.getElementById('s2-delta');
+      if (statusEl) statusEl.classList.toggle('s2-collapsed', isOpen);
+      if (deltaEl)  deltaEl.classList.toggle('s2-collapsed', isOpen);
+    };
+    drillBtn.addEventListener('click', toggleBreakdown);
+    const closeBtn = document.getElementById('s2-accordion-close');
+    if (closeBtn) closeBtn.addEventListener('click', toggleBreakdown);
   }
 
   /* --- Share button --- */
@@ -2642,10 +2703,24 @@ function renderS3() {
       if (drillBtn && accordion) {
         const fresh = drillBtn.cloneNode(true);
         drillBtn.parentNode.replaceChild(fresh, drillBtn);
-        fresh.addEventListener('click', () => {
-          accordion.classList.toggle('open');
+
+        const toggleBreakdown = () => {
+          const isOpen = accordion.classList.toggle('open');
           fresh.classList.toggle('open');
-        });
+          const statusEl = document.querySelector('.s2-status-sentence');
+          const deltaEl  = document.getElementById('s2-delta');
+          if (statusEl) statusEl.classList.toggle('s2-collapsed', isOpen);
+          if (deltaEl)  deltaEl.classList.toggle('s2-collapsed', isOpen);
+        };
+
+        fresh.addEventListener('click', toggleBreakdown);
+
+        const closeBtn = document.getElementById('s2-accordion-close');
+        if (closeBtn) {
+          const freshClose = closeBtn.cloneNode(true);
+          closeBtn.parentNode.replaceChild(freshClose, closeBtn);
+          freshClose.addEventListener('click', toggleBreakdown);
+        }
       }
 
       /* Same treatment for the share button — one clean listener */
