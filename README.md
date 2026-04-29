@@ -36,6 +36,55 @@ Every UI interaction writes to the central `state` object. A single `render()` f
 
 ---
 
+## System Diagram
+
+How the three panels connect, where state lives, and what triggers updates.
+
+```mermaid
+classDiagram
+    class AppState {
+        +String selectedClientId
+        +Boolean clientViewActive
+    }
+
+    class Client {
+        +String id
+        +String name
+        +Number score
+        +Number scorePrevious
+        +String status
+        +String alertFlag
+        +String lastUpdated
+        +String operatorNote
+        +String checkinDate
+        +String operatorReviewedDate
+    }
+
+    class Factors {
+        +Number visibility
+        +Number momentum
+        +Number engagement
+        +Number reputation
+        +Number activity
+    }
+
+    class ActivityItem {
+        +String date
+        +String action
+    }
+
+    AppState "1" --> "0..*" Client : clients[]
+    AppState ..> Client : selectedClientId ref
+    Client "1" *-- "1" Factors : factors
+    Client "1" *-- "0..*" ActivityItem : activityFeed[]
+```
+
+**State flow:** The Browser (Client Roster) writes `selectedClientId` to shared state when a row is clicked. The Detail View reads from the client matching that ID and re-renders instantly. The Controller writes status changes, reviewed dates, and check-in dates back to the matching client object. All three panels share one `state` object. No panel holds its own copy of the data.
+
+**Note on derived values:** `tier` and `tierUpgrade` are not stored in the state object. They are computed at render time from `score` and `scorePrevious` via `getTier()` and `getTierUpgrade()` helper functions. Score is the single source of truth for all tier-dependent UI.
+
+---
+
 ## Core Design Philosophy
 
 > The dashboard is not a place you go to check things. It is a system that catches things before they become problems.
@@ -104,7 +153,7 @@ Full ESF documentation at [`docs/esf-documentation.md`](docs/esf-documentation.m
 
 ```
 The-Reactive-Sandbox/
-├── README.md                ← you are here
+├── README.md                ← you are here (includes system diagram)
 ├── index.html               ← the entire app
 └── docs/
     ├── design-intent.md     ← professor-facing strategy doc
