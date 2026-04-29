@@ -2,1200 +2,2708 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#ffffff">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Go Local Pin — Client Dashboard</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
   <style>
+
     /* ============================================================
-       DESIGN TOKENS
+       DESIGN TOKENS — Google Maps 2025
+       Source: Build Brief § Visual Design Direction
     ============================================================ */
     :root {
-      --c-bg:          #FFFFFF;
-      --c-surface:     #F1F3F4;
-      --c-surface-el:  #E8EAED;
-      --c-teal:        #1A9B9B;
-      --c-teal-10:     rgba(26,155,155,.08);
-      --c-teal-20:     rgba(26,155,155,.18);
-      --c-blue:        #1A73E8;
-      --c-blue-10:     rgba(26,115,232,.10);
-      --c-pin:         #EA4335;
-      --c-pin-10:      rgba(234,67,53,.08);
-      --c-green:       #34A853;
-      --c-green-10:    rgba(52,168,83,.10);
-      --c-amber:       #FBBC04;
-      --c-amber-10:    rgba(251,188,4,.12);
-      --c-muted:       #9AA0A6;
-      --c-muted-10:    rgba(154,160,166,.12);
-      --c-text:        #202124;
-      --c-text-2:      #5F6368;
-      --c-rule:        #DADCE0;
-
-      --f-ui:   'DM Sans', sans-serif;
-      --f-num:  'IBM Plex Mono', monospace;
-
-      --r-sm:   6px;
-      --r-md:   10px;
-      --r-lg:   14px;
-      --r-pill: 999px;
-
-      --hdr-h:  54px;
-      --nav-h:  44px;
+      --score-green:    #1A73E8;
+      --score-yellow:   #F9AB00;
+      --score-red:      #D93025;
+      --surface-white:  #FFFFFF;
+      --text-primary:   #202124;
+      --text-secondary: #5F6368;
+      --border:         #DADCE0;
+      --accent-blue:    #1A73E8;
+      --surface-hover:  #F1F3F4;
     }
 
     /* ============================================================
        RESET
     ============================================================ */
     *, *::before, *::after {
-      box-sizing: border-box; margin: 0; padding: 0;
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
       -webkit-tap-highlight-color: transparent;
     }
+
     html, body {
-      height: 100%; overflow: hidden;
-      font-family: var(--f-ui);
-      color: var(--c-text);
-      background: var(--c-bg);
-      font-size: 14px; line-height: 1.45;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Google Sans', system-ui, -apple-system, sans-serif;
+      color: var(--text-primary);
+      background: var(--surface-white);
+      font-size: 14px;
+      line-height: 1.45;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
     }
-    button, select, input, textarea {
-      font-family: var(--f-ui); font-size: 13px;
+
+    button {
+      font-family: inherit;
+      cursor: pointer;
+      border: none;
+      background: none;
+      padding: 0;
     }
-    a { color: var(--c-blue); text-decoration: none; }
+
+    a {
+      color: var(--accent-blue);
+      text-decoration: none;
+    }
+    a:hover { text-decoration: underline; }
+
+    input, textarea {
+      font-family: inherit;
+      font-size: 14px;
+    }
 
     /* ============================================================
        APP SHELL
+       S1 spec: "No top navigation bar."
+       Three columns fill full viewport height.
     ============================================================ */
     #app {
       height: 100dvh;
-      display: flex; flex-direction: column;
-      overflow: hidden;
-    }
-
-    /* ---- Global Header ---- */
-    #app-header {
-      height: var(--hdr-h);
-      background: var(--c-bg);
-      border-bottom: 1px solid var(--c-rule);
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 16px;
-      flex-shrink: 0;
-      z-index: 50;
-    }
-
-    .logo { display: flex; align-items: center; gap: 9px; }
-
-    .logo-pin {
-      width: 22px; height: 28px;
-      flex-shrink: 0;
-      position: relative;
-    }
-    .logo-pin svg { width: 100%; height: 100%; }
-
-    .logo-word {
-      font-size: 15px; font-weight: 700; letter-spacing: -.025em;
-    }
-    .logo-word em { font-style: normal; color: var(--c-teal); }
-
-    #hdr-right {
-      display: flex; align-items: center; gap: 6px;
-      overflow: hidden; max-width: 55%;
-    }
-    #hdr-client-name {
-      font-size: 11px; color: var(--c-text-2);
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-
-    /* ============================================================
-       PANELS CONTAINER + PORTRAIT CAROUSEL
-    ============================================================ */
-    #panels-wrap {
-      flex: 1; overflow: hidden;
-      display: flex; flex-direction: column;
-    }
-
-    #carousel {
       display: flex;
-      height: 100%;
-      overflow-x: auto; overflow-y: hidden;
-      scroll-snap-type: x mandatory;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
-    }
-    #carousel::-webkit-scrollbar { display: none; }
-
-    .panel {
-      width: 100vw; min-width: 100vw; height: 100%;
-      flex-shrink: 0;
-      scroll-snap-align: start;
-      scroll-snap-stop: always;
-      display: flex; flex-direction: column;
       overflow: hidden;
-      background: var(--c-bg);
     }
-    .panel + .panel { border-left: 1px solid var(--c-rule); }
 
-    /* ---- Panel Head (sticky within column) ---- */
-    .panel-head {
+    /* ============================================================
+       GO LOCAL PIN WORDMARK
+       "i" in "Pin" replaced by an inline SVG map pin (Google Maps red)
+    ============================================================ */
+    #glp-wordmark {
       flex-shrink: 0;
-      background: var(--c-bg);
-      border-bottom: 1px solid var(--c-rule);
+      display: flex;
+      align-items: center;
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid var(--border);
+      gap: 0;
     }
 
-    .panel-head-top {
-      display: flex; align-items: baseline; justify-content: space-between;
-      padding: 11px 16px 0;
+    .glp-text {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+      line-height: 1;
     }
 
-    .panel-cap {
-      font-size: 10px; font-weight: 700;
-      letter-spacing: .09em; text-transform: uppercase;
-      color: var(--c-text-2);
-    }
-    .panel-sub {
-      font-size: 11px; color: var(--c-text-2);
-    }
-
-    /* ---- Panel Body (scrollable) ---- */
-    .panel-body {
-      flex: 1; overflow-y: auto; overflow-x: hidden;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
-      padding-bottom: var(--nav-h); /* clearance for dot-nav */
-    }
-    .panel-body::-webkit-scrollbar { display: none; }
-
-    /* ============================================================
-       DOT NAV  (portrait only)
-    ============================================================ */
-    #dot-nav {
-      position: fixed; bottom: 0; left: 0; right: 0;
-      height: var(--nav-h);
-      display: flex; align-items: center; justify-content: center;
-      gap: 10px;
-      background: var(--c-bg);
-      border-top: 1px solid var(--c-rule);
-      z-index: 200;
-    }
-
-    .dot {
-      height: 8px; width: 8px;
-      border-radius: var(--r-pill);
-      background: var(--c-rule);
-      border: none; cursor: pointer; padding: 0;
-      transition: width .2s cubic-bezier(.4,0,.2,1),
-                  background .2s cubic-bezier(.4,0,.2,1);
-      /* extended hit area */
-      position: relative;
-    }
-    .dot::after {
-      content: ''; position: absolute;
-      inset: -10px -8px;
-    }
-    .dot.on {
-      width: 22px;
-      background: var(--c-teal);
-    }
-
-    /* ============================================================
-       LANDSCAPE + DESKTOP — THREE-COLUMN
-    ============================================================ */
-    @media (min-width: 768px) {
-      #carousel {
-        display: grid;
-        grid-template-columns: 28fr 44fr 28fr;
-        overflow: hidden;
-        height: 100%;
-        scroll-snap-type: none;
-      }
-      .panel {
-        width: 100%; min-width: 0;
-        height: 100%;
-        scroll-snap-align: none;
-        scroll-snap-stop: normal;
-      }
-      .panel-body { padding-bottom: 0; }
-      #dot-nav    { display: none; }
-    }
-
-    @media (min-width: 1024px) {
-      #panels-wrap {
-        max-width: 1440px;
-        margin: 0 auto; width: 100%;
-      }
-    }
-
-    /* ============================================================
-       STATUS PILLS
-    ============================================================ */
-    .pill {
-      display: inline-flex; align-items: center; gap: 4px;
-      padding: 2px 8px;
-      border-radius: var(--r-pill);
-      font-size: 11px; font-weight: 600;
-      white-space: nowrap;
-      transition: background .2s, color .2s;
-    }
-    .pill::before {
-      content: ''; width: 5px; height: 5px; border-radius: 50%;
-      flex-shrink: 0;
-    }
-    .pill-Active           { background: var(--c-green-10); color: #1a6b2e; }
-    .pill-Active::before   { background: var(--c-green); }
-    .pill-NeedsAttention           { background: var(--c-amber-10); color: #7a5500; }
-    .pill-NeedsAttention::before   { background: var(--c-amber); }
-    .pill-Onboarding           { background: var(--c-blue-10); color: #174ea6; }
-    .pill-Onboarding::before   { background: var(--c-blue); }
-    .pill-Paused           { background: var(--c-muted-10); color: var(--c-text-2); }
-    .pill-Paused::before   { background: var(--c-muted); }
-
-    /* Tier badge */
-    .tier {
+    .glp-pin-letter {
+      width: 9px;
+      height: 15px;
       display: inline-block;
-      padding: 2px 7px;
-      border-radius: var(--r-sm);
-      font-size: 10px; font-weight: 700;
-      letter-spacing: .06em; text-transform: uppercase;
-    }
-    .tier-Starter { background: var(--c-surface-el); color: var(--c-text-2); }
-    .tier-Growth  { background: var(--c-teal-10);    color: var(--c-teal); }
-    .tier-Pro     { background: #fff3e0;              color: #e65100; }
-
-    /* ============================================================
-       TREND + RANK
-    ============================================================ */
-    .trend { font-size: 12px; font-weight: 600; }
-    .t-up   { color: var(--c-green); }
-    .t-down { color: var(--c-pin); }
-    .t-flat { color: var(--c-text-2); }
-
-    .rank {
-      font-family: var(--f-num);
-      font-size: 11px; font-weight: 600;
-      padding: 2px 6px;
-      border-radius: var(--r-sm);
-    }
-    .r-1 { background: #fff8e1; color: #f57f17; }
-    .r-2 { background: #eceff1; color: #546e7a; }
-    .r-3 { background: #fbe9e7; color: #bf360c; }
-    .r-x { color: var(--c-muted); opacity: .7; font-size: 12px; }
-
-    /* ============================================================
-       PANEL 1 — BROWSER
-    ============================================================ */
-    .filter-row {
-      display: flex; overflow-x: auto;
-      gap: 6px; padding: 10px 16px;
-      scrollbar-width: none;
-    }
-    .filter-row::-webkit-scrollbar { display: none; }
-
-    .chip {
-      padding: 5px 13px;
-      border-radius: var(--r-pill);
-      border: 1.5px solid var(--c-rule);
-      background: var(--c-bg);
-      color: var(--c-text-2);
-      font-size: 12px; font-weight: 500;
-      cursor: pointer; white-space: nowrap; flex-shrink: 0;
-      transition: all .15s;
-    }
-    .chip.on {
-      background: var(--c-teal); border-color: var(--c-teal); color: #fff;
-    }
-
-    .sort-row {
-      display: flex; align-items: center;
-      gap: 6px; padding: 0 16px 10px;
-    }
-    .sort-lbl { font-size: 11px; color: var(--c-text-2); }
-    .sort-sel {
-      font-size: 12px; font-weight: 600; color: var(--c-teal);
-      background: transparent; border: none; cursor: pointer; outline: none;
-    }
-
-    .client-list { list-style: none; }
-
-    .c-row {
-      display: flex; align-items: center;
-      padding: 11px 16px; gap: 11px;
-      border-bottom: 1px solid var(--c-rule);
-      cursor: pointer;
+      vertical-align: middle;
       position: relative;
-      transition: background .12s;
-    }
-    .c-row:active { background: var(--c-surface); }
-    .c-row.sel    { background: var(--c-teal-10); }
-    .c-row.sel::before {
-      content: ''; position: absolute;
-      left: 0; top: 0; bottom: 0; width: 3px;
-      background: var(--c-teal);
-      border-radius: 0 2px 2px 0;
-    }
-
-    .avatar {
-      width: 36px; height: 36px; border-radius: 50%;
-      background: var(--c-teal-20); color: var(--c-teal);
-      font-size: 12px; font-weight: 700;
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-    }
-
-    .c-info { flex: 1; min-width: 0; }
-    .c-name {
-      font-size: 13px; font-weight: 600;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      margin-bottom: 4px;
-    }
-    .c-meta { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
-    .c-hood  { font-size: 11px; color: var(--c-text-2); }
-
-    .c-right {
-      display: flex; flex-direction: column;
-      align-items: flex-end; gap: 4px;
-      flex-shrink: 0;
+      top: -1px;
+      margin: 0 0.5px;
     }
 
     /* ============================================================
-       PANEL 2 — DETAIL VIEW
+       COLUMN 1 — ROSTER
+       Spec: "ROSTER (320px fixed)"
+       § S1 — Operator Dashboard > Column 1: Client Roster
     ============================================================ */
-    #panel-detail { transition: opacity .15s ease; }
-
-    .d-hdr {
-      padding: 15px 16px;
-      border-bottom: 1px solid var(--c-rule);
-    }
-    .d-name {
-      font-size: 20px; font-weight: 700;
-      letter-spacing: -.03em; margin-bottom: 5px;
-    }
-    .d-owner {
-      font-size: 12px; color: var(--c-text-2);
-      display: flex; align-items: center; flex-wrap: wrap;
-      gap: 5px; margin-bottom: 10px;
-    }
-    .d-sep { color: var(--c-rule); }
-    .d-badges { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-
-    /* Rank hero */
-    .rank-hero {
-      margin: 14px;
-      border-radius: var(--r-lg);
-      background: var(--c-surface);
-      padding: 18px 20px;
-      display: flex; align-items: center; gap: 18px;
-    }
-    .rh-num {
-      font-family: var(--f-num);
-      font-size: 56px; font-weight: 600; line-height: 1;
+    #roster {
+      width: 320px;
       flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-right: 1px solid var(--border);
+      background: var(--surface-white);
     }
-    .rh-1 { color: #f57f17; }
-    .rh-2 { color: #546e7a; }
-    .rh-3 { color: #bf360c; }
-    .rh-x { font-size: 30px; color: var(--c-text-2); }
-    .rh-lbl {
-      font-size: 10px; font-weight: 700;
-      letter-spacing: .09em; text-transform: uppercase;
-      color: var(--c-text-2); margin-bottom: 5px;
+
+    /* Sticky roster header
+       Spec: "'Clients' label — 16px, weight 600, --text-primary"
+              "'Sorted by urgency' — 12px, --text-secondary"
+              "No sort controls. Sorting is automatic and not user-adjustable." */
+    #roster-header {
+      flex-shrink: 0;
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
     }
-    .rh-term { font-size: 13px; font-weight: 500; }
-    .rh-warn { margin-top: 5px; font-size: 11px; font-weight: 700; color: var(--c-pin); }
+
+    .roster-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .roster-sort-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .sort-toggle {
+      display: flex;
+      gap: 4px;
+    }
+
+    .sort-btn {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--surface-white);
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 150ms ease, color 150ms ease;
+    }
+
+    .sort-btn:hover {
+      background: var(--surface-hover);
+      color: var(--text-primary);
+    }
+
+    .sort-btn-active {
+      background: var(--surface-hover);
+      color: var(--text-primary);
+      border-color: var(--text-secondary);
+    }
+
+    /* Scrollable roster body */
+    #roster-list {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+    #roster-list::-webkit-scrollbar { width: 4px; }
+    #roster-list::-webkit-scrollbar-track { background: transparent; }
+    #roster-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+
+    /* ---- Roster Row ----
+       Spec: "Height: 72px. Padding: 12px 16px. Border-bottom: 1px --border."
+    ============================================================ */
+    .roster-row {
+      position: relative;
+      height: 72px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      /* Spec: "200ms ease for color/opacity changes" */
+      transition: background 200ms ease;
+      background: var(--surface-white);
+    }
+
+    /* Spec: "Hover: --surface-hover background, 200ms transition" */
+    .roster-row:hover {
+      background: var(--surface-hover);
+    }
+
+    /* Spec: "Selected: left border 3px solid --accent-blue, --surface-hover background" */
+    .roster-row.selected {
+      background: var(--surface-hover);
+      border-left: 3px solid var(--accent-blue);
+      padding-left: 13px; /* 16px - 3px border = 13px to preserve internal alignment */
+    }
+
+    /* Left info block */
+    .row-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    /* Spec: "Client name — 14px, weight 500, --text-primary" */
+    .row-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .row-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Spec: "Delta indicator — direction arrow + number (e.g. '↑4') — 12px, colored by direction" */
+    .row-delta {
+      font-size: 12px;
+      font-weight: 400;
+    }
+
+    /* Spec: "Alert flag — plain language, one flag maximum — 12px, weight 500, --score-yellow if present" */
+    .row-alert {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--score-yellow);
+    }
+
+    /* Spec: "Last updated timestamp — 12px, --text-secondary" */
+    .row-timestamp {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    /* Right: score number
+       Spec: "Score number + tier color — 20px, weight 700, colored by tier token" */
+    .row-score-display {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      min-width: 32px;
+    }
+
+    /* On hover, hide score so pills have clear real estate */
+    .roster-row:hover .row-score-display {
+      visibility: hidden;
+    }
+
+    .row-score {
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+
+    /* ---- Inline Status Pills ----
+       Spec: "Three pills appear on the right edge of the row on hover"
+             "4px border-radius, 12px font, 4px 8px padding"
+             "Color matches status tier token"
+    ============================================================ */
+    .row-pills {
+      display: none; /* hidden by default */
+      position: absolute;
+      right: 16px;
+      top: 0;
+      bottom: 0;
+      flex-direction: column;
+      justify-content: center;
+      gap: 4px;
+      z-index: 10;
+    }
+
+    .roster-row:hover .row-pills {
+      display: flex;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: opacity 150ms ease;
+      font-family: inherit;
+      border: none;
+    }
+
+    .status-pill:hover {
+      opacity: 0.78;
+    }
+
+    /* "Color matches status tier token" */
+    .pill-on-track {
+      background: rgba(26, 115, 232, 0.10);
+      color: var(--score-green);
+    }
+
+    .pill-watch {
+      background: rgba(249, 171, 0, 0.14);
+      color: #7a5200; /* accessible label against light yellow bg */
+    }
+
+    .pill-needs-attention {
+      background: rgba(217, 48, 37, 0.10);
+      color: var(--score-red);
+    }
+
+    /* Active pill — the status currently set on this client.
+       Shows clearly which pill is selected on hover so the change is legible. */
+    .status-pill.is-active {
+      font-weight: 700;
+      box-shadow: 0 0 0 1.5px currentColor;
+    }
+
+    .pill-on-track.is-active {
+      background: rgba(26, 115, 232, 0.22);
+    }
+
+    .pill-watch.is-active {
+      background: rgba(249, 171, 0, 0.28);
+    }
+
+    .pill-needs-attention.is-active {
+      background: rgba(217, 48, 37, 0.20);
+    }
+
+    /* ---- Row feedback animations ----
+       Spec § Feedback + Juice:
+       "Row background flashes --score-green at 30% opacity for 300ms then returns to default;
+        checkmark icon fades in on the row for 600ms then fades out"
+    ============================================================ */
+    @keyframes rowFlash {
+      0%   { background-color: rgba(26, 115, 232, 0.30); }
+      100% { background-color: var(--surface-hover); }
+    }
+
+    .row-flashing {
+      animation: rowFlash 300ms ease forwards;
+    }
+
+    /* Checkmark overlay that fades in/out */
+    .row-check {
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 14px;
+      color: var(--score-green);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 120ms ease;
+    }
+
+    .row-check.visible {
+      opacity: 1;
+    }
+
+    /* ============================================================
+       COLUMN 2 — DETAIL PANEL
+       Spec: "flexible center column (detail panel)"
+             "Empty state: 'Select a client to review' — 14px, --text-secondary"
+    ============================================================ */
+    #detail-panel {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-right: 1px solid var(--border);
+      background: var(--surface-white);
+      /* Spec: "0 1px 3px rgba(0,0,0,0.12) — used on cards and detail panel only" */
+      box-shadow: inset -1px 0 0 var(--border);
+      transition: opacity 130ms ease;
+    }
+
+    .detail-empty {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    /* ============================================================
+       COLUMN 3 — OPERATOR CONTROLS
+       Spec: "CONTROLS (280px fixed)"
+    ============================================================ */
+    #controls {
+      width: 280px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--surface-white);
+    }
+
+    #controls-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Spec: "'Show Client View' — full width of column, --accent-blue background,
+              white text, 8px border-radius. Always visible." */
+    #btn-client-view {
+      display: block;
+      width: 100%;
+      padding: 10px 16px;
+      background: var(--accent-blue);
+      color: #FFFFFF;
+      font-size: 14px;
+      font-weight: 500;
+      border-radius: 8px;
+      text-align: center;
+      cursor: pointer;
+      border: none;
+      font-family: inherit;
+      transition: opacity 200ms ease;
+    }
+
+    #btn-client-view:hover {
+      opacity: 0.88;
+    }
+
+
+    /* ============================================================
+       PHASE 3 — CONTROLS COLUMN
+       Spec § S1 > Column 3: Operator Controls
+    ============================================================ */
+
+    /* Divider between sections in controls */
+    .controls-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 0 -16px; /* bleed to column edges */
+    }
+
+    /* Section label above action group */
+    .controls-section-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    /* Group wrapper for selected-client actions */
+    .controls-action-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* Standard action button
+       Spec: no explicit style called out for these beyond
+       being present and functional when a client is selected */
+    .ctrl-btn {
+      display: block;
+      width: 100%;
+      padding: 10px 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface-white);
+      color: var(--text-primary);
+      font-size: 14px;
+      font-weight: 500;
+      text-align: left;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 200ms ease;
+    }
+
+    .ctrl-btn:hover {
+      background: var(--surface-hover);
+    }
+
+    /* Placeholder buttons
+       Spec: "shown at 50% opacity with a tooltip on hover
+              explaining they require live GBP connection" */
+    .ctrl-btn-placeholder {
+      opacity: 0.5;
+      cursor: default;
+      position: relative;
+    }
+
+    .ctrl-btn-placeholder:hover {
+      background: var(--surface-white); /* no hover change for disabled */
+    }
+
+    /* Tooltip on placeholder hover
+       Spec: "tooltip on hover explaining they require live GBP connection" */
+    .ctrl-btn-placeholder .ctrl-tooltip {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 0;
+      right: 0;
+      background: var(--text-primary);
+      color: #FFFFFF;
+      font-size: 12px;
+      font-weight: 400;
+      padding: 6px 10px;
+      border-radius: 4px;
+      white-space: normal;
+      line-height: 1.45;
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    .ctrl-btn-placeholder:hover .ctrl-tooltip {
+      display: block;
+    }
+
+    /* Schedule check-in: date input that appears inline
+       Spec: "opens a simple date input, saves a check-in date" */
+    .checkin-input-wrap {
+      display: none;
+      margin-top: 4px;
+    }
+
+    .checkin-input-wrap.open {
+      display: block;
+    }
+
+    .checkin-input {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      color: var(--text-primary);
+      background: var(--surface-white);
+      outline: none;
+      transition: border-color 200ms ease;
+    }
+
+    .checkin-input:focus {
+      border-color: var(--accent-blue);
+    }
+
+    /* GBP action buttons — real links to business.google.com */
+    .ctrl-btn-gbp {
+      display: block;
+      text-align: left;
+      text-decoration: none;
+      color: var(--text-primary);
+    }
+
+    .ctrl-btn-gbp:hover {
+      background: var(--surface-hover);
+      text-decoration: none;
+    }
+    .ctrl-btn-reviewed {
+      color: var(--score-green);
+      border-color: var(--score-green);
+    }
+
+    /* Danger zone
+       Spec: "'Remove Client' — 12px, --score-red text, no background"
+    ============================================================ */
+    .controls-danger {
+      margin-top: auto; /* push to bottom of column */
+      padding-top: 16px;
+    }
+
+    .ctrl-btn-danger {
+      background: none;
+      border: none;
+      padding: 8px 0;
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--score-red);
+      cursor: pointer;
+      font-family: inherit;
+      text-align: left;
+      width: 100%;
+    }
+
+    .ctrl-btn-danger:hover {
+      text-decoration: underline;
+    }
+
+    /* Confirmation state
+       Spec: "Are you sure? This cannot be undone. Two options: Cancel and Remove." */
+    .remove-confirm {
+      border: 1px solid var(--score-red);
+      border-radius: 8px;
+      padding: 12px;
+      display: none;
+    }
+
+    .remove-confirm.open {
+      display: block;
+    }
+
+    .remove-confirm-msg {
+      font-size: 13px;
+      color: var(--text-primary);
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+
+    .remove-confirm-msg strong {
+      color: var(--score-red);
+    }
+
+    .remove-confirm-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-cancel-remove {
+      flex: 1;
+      padding: 7px 0;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface-white);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 200ms ease;
+    }
+
+    .btn-cancel-remove:hover {
+      background: var(--surface-hover);
+    }
+
+    /* "Remove" confirm button — red fill */
+    .btn-confirm-remove {
+      flex: 1;
+      padding: 7px 0;
+      border: none;
+      border-radius: 8px;
+      background: var(--score-red);
+      font-size: 13px;
+      font-weight: 500;
+      color: #FFFFFF;
+      cursor: pointer;
+      font-family: inherit;
+      transition: opacity 200ms ease;
+    }
+
+    .btn-confirm-remove:hover {
+      opacity: 0.85;
+    }
+
+    /* ============================================================
+       PHASE 2 — DETAIL PANEL LOADED STATE
+       Spec § S1 > Column 2: Detail Panel > Loaded state
+    ============================================================ */
+
+    /* Outer wrapper when a client is selected */
+    .detail-loaded {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    /* Sticky header
+       Spec: "Client name — 18px, weight 600"
+             "Current score — 32px, weight 700, tier color"
+             "Week-over-week delta — 14px, direction arrow + number"
+             "View in Local Falcon ↗ link — 13px, --accent-blue"
+             "Open in BrightLocal ↗ link — 13px, --accent-blue"
+    ============================================================ */
+    .detail-header {
+      flex-shrink: 0;
+      padding: 16px 24px 12px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-white);
+    }
+
+    .detail-header-top {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+
+    .detail-client-name {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    /* Spec: "Current score — 32px, weight 700, tier color" */
+    .detail-score {
+      font-size: 32px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .detail-header-sub {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    /* Spec: "Week-over-week delta — 14px, direction arrow + number" */
+    .detail-delta {
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .detail-links {
+      display: flex;
+      gap: 16px;
+    }
+
+    /* Alert flag banner — shown in detail header when client has an unresolved alert */
+    .detail-alert-banner {
+      margin-top: 10px;
+      padding: 8px 12px;
+      background: rgba(249, 171, 0, 0.12);
+      border: 1px solid rgba(249, 171, 0, 0.40);
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #7a5200;
+    }
+
+    /* Spec: "13px, --accent-blue" */
+    .detail-link {
+      font-size: 13px;
+      color: var(--accent-blue);
+    }
+
+    /* Scrollable body below sticky header */
+    .detail-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+    }
+
+    .detail-body::-webkit-scrollbar { width: 4px; }
+    .detail-body::-webkit-scrollbar-track { background: transparent; }
+    .detail-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
     /* Section wrapper */
-    .dsect { padding: 0 14px 14px; }
-    .dsect-hd {
-      font-size: 10px; font-weight: 700;
-      letter-spacing: .09em; text-transform: uppercase;
-      color: var(--c-text-2);
-      padding-bottom: 8px;
+    .detail-section {
+      margin-bottom: 32px;
     }
 
-    /* Metrics grid */
-    .metrics-grid {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    /* Spec: "Recent activity — 14px, weight 500" (same style applied to all section headers) */
+    .section-header {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: 12px;
     }
-    .metric {
-      background: var(--c-surface);
-      border-radius: var(--r-md);
-      padding: 11px 12px;
-    }
-    .metric-lbl { font-size: 11px; color: var(--c-text-2); margin-bottom: 5px; }
-    .metric-val {
-      font-family: var(--f-num);
-      font-size: 22px; font-weight: 600; line-height: 1;
-      color: var(--c-text); margin-bottom: 4px;
-    }
-    .metric-val.sm  { font-size: 17px; padding-top: 3px; }
-    .metric-val.red { color: var(--c-pin); }
-    .metric-sub     { font-size: 10px; color: var(--c-text-2); }
-    .metric-sub.warn{ color: var(--c-pin); font-weight: 700; }
 
-    /* Sparkline */
-    .spark-bars {
-      display: flex; align-items: flex-end;
-      gap: 5px; height: 44px;
-    }
-    .spark-bar {
-      flex: 1; border-radius: 3px 3px 0 0;
-      background: var(--c-teal); opacity: .22;
-    }
-    .spark-bar.now { opacity: 1; }
 
-    .spark-xaxis {
-      display: flex; justify-content: space-between;
-      margin-top: 5px;
-    }
-    .spark-xl { font-family: var(--f-num); font-size: 9px; color: var(--c-text-2); }
-
-    /* Next action */
-    .next-action {
-      margin: 0 14px 14px;
-      background: var(--c-teal-10);
-      border: 1.5px solid var(--c-teal-20);
-      border-radius: var(--r-lg);
-      padding: 13px 15px;
-      display: flex; align-items: flex-start; gap: 10px;
-    }
-    .na-ico { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
-    .na-lbl {
-      font-size: 9px; font-weight: 700;
-      letter-spacing: .1em; text-transform: uppercase;
-      color: var(--c-teal); margin-bottom: 4px;
-    }
-    .na-txt { font-size: 13px; font-weight: 500; line-height: 1.45; }
-
-    /* ============================================================
-       PANEL 3 — CONTROLLER
+    /* ---- Factor Cards ----
+       Spec: "Five factor cards in a 2-column grid (last card full-width if odd number)"
+             "Factor score — number out of 20"
+             "Mini progress bar — colored by tier token"
+             "One-sentence plain language description of what this score means"
     ============================================================ */
-    .ctl-sec {
-      padding: 14px 16px;
-      border-bottom: 1px solid var(--c-rule);
-    }
-    .ctl-sec:last-child { border-bottom: none; }
-    .ctl-lbl {
-      font-size: 10px; font-weight: 700;
-      letter-spacing: .09em; text-transform: uppercase;
-      color: var(--c-text-2); margin-bottom: 9px;
+    .factor-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
     }
 
-    /* View mode toggle */
-    .vtoggle {
-      display: flex;
-      background: var(--c-surface);
-      border-radius: var(--r-md); padding: 3px;
-    }
-    .vt-btn {
-      flex: 1; padding: 7px 10px;
-      border: none; background: transparent;
+    /* Spec: "Border radius: 8px on cards"
+             "Shadows: single shadow only — 0 1px 3px rgba(0,0,0,0.12) — used on cards and detail panel only" */
+    .factor-card {
+      border: 1px solid var(--border);
       border-radius: 8px;
-      font-size: 12px; font-weight: 500; color: var(--c-text-2);
-      cursor: pointer; transition: all .15s;
-    }
-    .vt-btn.on {
-      background: var(--c-bg);
-      color: var(--c-text); font-weight: 600;
-      box-shadow: 0 1px 4px rgba(0,0,0,.12);
+      padding: 16px;
+      background: var(--surface-white);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
     }
 
-    /* Status select */
-    .sts-sel {
-      width: 100%; padding: 9px 36px 9px 12px;
-      border: 1.5px solid var(--c-rule);
-      border-radius: var(--r-md);
-      font-size: 13px; color: var(--c-text);
-      background: var(--c-bg);
-      cursor: pointer; outline: none;
-      appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235F6368'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 12px center;
-      background-size: 8px;
-      transition: border-color .15s;
+    /* Last card spans full width when factor count is odd */
+    .factor-card-full {
+      grid-column: 1 / -1;
     }
-    .sts-sel:focus { border-color: var(--c-teal); }
 
-    /* Quick actions */
-    .qa-list { display: flex; flex-direction: column; gap: 7px; }
-    .qa-btn {
-      display: flex; align-items: center; gap: 10px;
-      padding: 9px 12px;
-      border: 1.5px solid var(--c-rule);
-      border-radius: var(--r-md);
-      background: var(--c-bg);
-      font-size: 13px; font-weight: 500; color: var(--c-text);
-      cursor: pointer; width: 100%; text-align: left;
-      transition: all .15s;
+    .factor-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 8px;
     }
-    .qa-btn:hover, .qa-btn:active {
-      border-color: var(--c-teal-20);
-      background: var(--c-teal-10);
-    }
-    .qa-ic { font-size: 16px; width: 22px; text-align: center; flex-shrink: 0; }
 
-    /* Note textarea */
-    .note-area {
-      width: 100%; padding: 9px 12px;
-      border: 1.5px solid var(--c-rule);
-      border-radius: var(--r-md);
-      font-size: 13px; color: var(--c-text);
-      background: var(--c-bg);
-      outline: none; resize: none; line-height: 1.5;
-      transition: border-color .15s;
+    /* Spec: Factor plain language label — 13px, weight 500 */
+    .factor-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
     }
-    .note-area:focus { border-color: var(--c-teal); }
 
-    /* Client mode card */
-    .cc-card {
-      margin: 14px;
-      background: var(--c-surface);
-      border-radius: var(--r-lg);
-      padding: 26px 20px;
-      text-align: center;
-    }
-    .cc-emo  { font-size: 42px; margin-bottom: 10px; }
-    .cc-msg  { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
-    .cc-sub  { font-size: 12px; color: var(--c-text-2); line-height: 1.5; }
-
-    /* Divider note */
-    .ctl-note {
-      font-size: 11px; color: var(--c-text-2);
-      text-align: center; line-height: 1.55;
-    }
-    .ctl-note strong { color: var(--c-text); }
-
-    /* ============================================================
-       TOAST
-    ============================================================ */
-    #toast {
-      position: fixed;
-      bottom: calc(var(--nav-h) + 10px); left: 50%;
-      transform: translateX(-50%) translateY(10px);
-      background: rgba(32,33,36,.9);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      color: #fff;
-      padding: 8px 18px;
-      border-radius: var(--r-pill);
-      font-size: 12px; font-weight: 500;
-      opacity: 0; pointer-events: none;
-      transition: opacity .2s, transform .2s;
-      z-index: 500;
+    /* Spec: "Factor score — number out of 20" */
+    .factor-score {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-primary);
       white-space: nowrap;
     }
-    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-    @media (min-width: 768px) {
-      #toast { bottom: 16px; }
+    .factor-max {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-secondary);
+    }
+
+    /* Mini progress bar track */
+    .factor-bar-track {
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      margin-bottom: 8px;
+      overflow: hidden;
+    }
+
+    /* Spec: "Mini progress bar — colored by tier token"
+             "400ms ease-out" for animated elements */
+    .factor-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 400ms ease-out;
+    }
+
+    /* Spec: "One-sentence plain language description of what this score means" */
+    .factor-desc {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+
+    /* ---- Activity Feed ----
+       Spec: "List of timestamped actions. Maximum 5 items shown."
+    ============================================================ */
+    .activity-feed {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .activity-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .activity-item:last-child {
+      border-bottom: none;
+    }
+
+    .activity-action {
+      font-size: 14px;
+      color: var(--text-primary);
+    }
+
+    /* Spec: "Timestamps — 12px, --text-secondary" */
+    .activity-date {
+      font-size: 12px;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+      margin-left: 8px;
+    }
+
+
+    /* ---- Operator Note Field ----
+       Spec: "Plain text input — 'Add a note for this client...' placeholder"
+             "No submit button — note saves on blur"
+             "Saved notes display above the input field with timestamp"
+    ============================================================ */
+    .saved-note {
+      background: var(--surface-hover);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 8px;
+    }
+
+    .saved-note-text {
+      font-size: 14px;
+      color: var(--text-primary);
+      display: block;
+      margin-bottom: 4px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .saved-note-ts {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    /* Spec: "Plain text input" — using textarea for multi-line notes */
+    .note-input {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 14px;
+      color: var(--text-primary);
+      background: var(--surface-white);
+      resize: vertical;
+      min-height: 72px;
+      outline: none;
+      transition: border-color 200ms ease;
+      line-height: 1.5;
+    }
+
+    .note-input:focus {
+      border-color: var(--accent-blue);
+    }
+
+    .note-input::placeholder {
+      color: var(--text-secondary);
+    }
+
+    .note-save-btn {
+      margin-top: 8px;
+      padding: 8px 16px;
+      background: var(--accent-blue);
+      color: #FFFFFF;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: inherit;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: opacity 200ms ease;
+    }
+
+    .note-save-btn:hover {
+      opacity: 0.88;
+    }
+
+
+    /* ============================================================
+       PHASE 3 — S2: CLIENT SCORE VIEW
+       Spec § S2 — Client Score View
+       Primary user: Marcus (contractor)
+       Viewport: Mobile — 390px (iPhone 14)
+    ============================================================ */
+
+    /* Full-screen container for S2.
+       Spec: "Single column. Mobile viewport (390px). No navigation bar. No header." */
+    .s2-screen {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-y: auto;
+      overflow-x: hidden;
+      background: var(--surface-white);
+      padding: 0 16px 48px;
+    }
+
+    .s2-screen::-webkit-scrollbar { width: 0; }
+
+    /* 1. Wordmark
+       Spec: "14px, weight 600, --text-secondary. Margin-top: 48px." */
+    .s2-wordmark {
+      margin-top: 48px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      letter-spacing: 0.01em;
+      text-align: center;
+      align-self: center;
+    }
+
+    /* 2. Score arc container
+       Spec: "SVG circle arc. Centered horizontally."
+             "Arc sweeps from 7 o'clock to 5 o'clock (220 degree sweep)."
+             "50% on score arc container" (border-radius)
+    ============================================================ */
+    /* Pin wrapper — groups arc head and triangular tail into one shape */
+    .s2-pin-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 24px auto 0;
+      flex-shrink: 0;
+    }
+
+    .s2-arc-container {
+      position: relative;
+      width: 220px;
+      height: 220px;
+      flex-shrink: 0;
+    }
+
+    /* Triangular pin tail — fades from tier color to transparent downward */
+    .s2-pin-tail {
+      display: block;
+      width: 110px;
+      height: 140px;
+      margin-top: -48px;
+    }
+
+    .s2-arc-svg {
+      width: 220px;
+      height: 220px;
+      display: block;
+    }
+
+    /* Text centered inside the arc.
+       Nudge upward slightly since arc opens at the bottom. */
+    .s2-arc-inner {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -52%);
+      text-align: center;
+      pointer-events: none;
+    }
+
+    /* Spec: "Score number inside arc: 80px minimum, weight 700, --text-primary.
+              Do not color the number — the arc carries the color signal." */
+    .s2-score-number {
+      font-size: 80px;
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1;
+    }
+
+    /* Spec: "Tier label below score number inside arc: 14px, weight 500, tier color." */
+    .s2-tier-label {
+      font-size: 14px;
+      font-weight: 500;
+      margin-top: 4px;
+      /* color set inline by buildS2Html */
+    }
+
+    /* 3. Status sentence
+       Spec: "16px, weight 400, --text-primary. Centered. Margin-top: 24px from arc bottom." */
+    .s2-status-sentence {
+      font-size: 16px;
+      font-weight: 400;
+      color: var(--text-primary);
+      text-align: center;
+      margin-top: 24px;
+      line-height: 1.5;
+      max-width: 320px;
+    }
+
+    /* 4. Delta indicator
+       Spec: "Small. Centered below status sentence."
+             "Direction arrow + number + 'this week' label. 14px, weight 500, tier color for direction."
+             "Margin-top: 8px."
+    ============================================================ */
+    .s2-delta {
+      font-size: 14px;
+      font-weight: 500;
+      margin-top: 8px;
+      text-align: center;
+      /* color set inline */
+    }
+
+    /* Spacer pushes drill-down and share button to the lower portion of the screen.
+       Spec: "Located in the bottom 40% of the screen."
+             "All interactive elements in the bottom 55% of the screen." */
+    .s2-spacer {
+      flex: 1;
+      min-height: 16px;
+      max-height: 48px;
+    }
+
+    /* 5. Drill-down tap target
+       Spec: "Large tap target — minimum 48px height, full width minus 32px margin."
+             "--border outline, 8px border-radius, 14px, weight 500, --text-primary."
+             "Not a filled button — a ghost button."
+    ============================================================ */
+    .s2-drill-btn {
+      width: calc(100% - 0px); /* container already has 16px padding each side */
+      min-height: 48px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: transparent;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+      font-family: inherit;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 16px;
+      transition: background 200ms ease;
+    }
+
+    .s2-drill-btn:hover {
+      background: var(--surface-hover);
+    }
+
+    .s2-drill-chevron {
+      display: inline-block;
+      transition: transform 300ms ease;
+      margin-left: 4px;
+    }
+
+    .s2-drill-btn.open .s2-drill-chevron {
+      transform: rotate(180deg);
+    }
+
+    /* Accordion — hidden until drill button is tapped
+       Spec: "expands an accordion below it showing the five factor scores as horizontal bar rows."
+             "Each row: factor plain language label, score out of 20, colored bar."
+             "No numbers beyond the bar — the bar length communicates the value."
+    ============================================================ */
+    .s2-accordion {
+      width: 100%;
+      margin-top: 8px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      max-height: 0;
+      opacity: 0;
+      transition: max-height 380ms ease, opacity 280ms ease;
+    }
+
+    .s2-accordion.open {
+      max-height: 500px; /* tall enough for 5 factor rows */
+      opacity: 1;
+    }
+
+    .s2-factor-row {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .s2-factor-row:last-child {
+      border-bottom: none;
+    }
+
+    /* Factor label: plain language label from spec table */
+    .s2-factor-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      flex-shrink: 0;
+      width: 120px;
+    }
+
+    /* Bar track (right side of row) */
+    .s2-factor-bar-track {
+      flex: 1;
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .s2-factor-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 400ms ease-out;
+    }
+
+    /* 6. Share button — conditional on tierUpgrade: true
+       Spec: "--score-green background, white text, 8px border-radius,
+              full width minus 32px margin."
+    ============================================================ */
+    .s2-share-btn {
+      width: 100%;
+      min-height: 48px;
+      margin-top: 16px;
+      border: none;
+      border-radius: 8px;
+      background: var(--score-green);
+      color: #FFFFFF;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 16px;
+      transition: opacity 200ms ease;
+    }
+
+    .s2-share-btn:hover {
+      opacity: 0.88;
+    }
+
+    /* Toast notification (clipboard fallback)
+       Spec: "If Web Share API unavailable, copies message to clipboard
+              and shows 'Copied to clipboard' toast." */
+    .s2-toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(8px);
+      background: var(--text-primary);
+      color: #FFFFFF;
+      font-size: 13px;
+      font-weight: 400;
+      padding: 10px 20px;
+      border-radius: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 200ms ease, transform 200ms ease;
+      white-space: nowrap;
+      z-index: 1000;
+    }
+
+    .s2-toast.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
     }
 
     /* ============================================================
-       EMPTY STATE
+       PHASE 3 — STANDALONE S2 PREVIEW
+       Activated via ?view=client URL parameter.
+       Spec: "render only S2 centered on the page so it can be tested in isolation"
     ============================================================ */
-    .empty {
-      padding: 40px 20px; text-align: center; color: var(--c-text-2);
+    #s2-preview-wrapper {
+      display: none;
+      height: 100dvh;
+      background: var(--surface-hover);
+      align-items: center;
+      justify-content: center;
     }
-    .empty-ico { font-size: 30px; margin-bottom: 8px; }
-    .empty-txt { font-size: 13px; }
+
+    .s2-preview-device {
+      width: 390px;
+      height: min(844px, 100dvh - 32px);
+      background: var(--surface-white);
+      border-radius: 12px;
+      border: 2px solid var(--border);
+      /* Spec § S3 device frame: "Drop shadow: 0 4px 16px rgba(0,0,0,0.12)" */
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+      overflow: hidden;
+    }
+
+    /* ============================================================
+       PHASE 3 — S3: CLIENT VIEW TOGGLE
+       Spec § S3 — Client View Toggle
+    ============================================================ */
+
+    /* Outer wrapper fills the detail panel, uses --surface-hover background
+       Spec: "Background outside frame: --surface-hover" */
+    .s3-wrapper {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      background: var(--surface-hover);
+    }
+
+    /* Toggle bar above the device frame
+       Spec: "'Client View — [Client Name]' label on the left — 14px, weight 500"
+             "'← Back to Operator View' link on the right — 14px, --accent-blue" */
+    .s3-toggle-bar {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-white);
+    }
+
+    .s3-toggle-label {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .s3-back-link {
+      font-size: 14px;
+      color: var(--accent-blue);
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      padding: 0;
+    }
+
+    .s3-back-link:hover {
+      text-decoration: underline;
+    }
+
+    /* Container that centers the device frame in the remaining space
+       Spec: "a centered mobile frame (390px wide, 844px tall)" */
+    .s3-device-area {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: auto;
+      padding: 24px;
+    }
+
+    /* Device frame chrome
+       Spec: "Rounded rectangle outline, 12px border-radius, 2px --border stroke"
+             "No fake device buttons or notch"
+             "Drop shadow: 0 4px 16px rgba(0,0,0,0.12)" */
+    .s3-device-frame {
+      width: 390px;
+      height: min(844px, 100%);
+      flex-shrink: 0;
+      background: var(--surface-white);
+      border-radius: 12px;
+      border: 2px solid var(--border);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+      overflow: hidden;
+    }
+
+    /* Operator note displayed in client view
+       Shown between delta and spacer when a note exists */
+    .s2-operator-note {
+      margin-top: 20px;
+      width: 100%;
+      background: var(--surface-hover);
+      border-radius: 8px;
+      padding: 12px 16px;
+    }
+
+    .s2-operator-note-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+
+    .s2-operator-note-text {
+      font-size: 14px;
+      color: var(--text-primary);
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
   </style>
 </head>
 <body>
+
+<!-- ============================================================
+     OPERATOR DASHBOARD (S1) — three-column layout
+============================================================ -->
 <div id="app">
 
-  <!-- ─────────── GLOBAL HEADER ─────────── -->
-  <header id="app-header">
-    <div class="logo">
-      <div class="logo-pin">
-        <svg viewBox="0 0 22 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="11" cy="11" r="10" fill="#EA4335"/>
-          <circle cx="11" cy="11" r="4.5" fill="white"/>
-          <path d="M11 21 L11 28" stroke="#EA4335" stroke-width="2.5" stroke-linecap="round"/>
-        </svg>
-      </div>
-      <span class="logo-word">Go Local <em>Pin</em></span>
+  <!-- Column 1: Client Roster (320px fixed) -->
+  <div id="roster">
+    <!-- Go Local Pin wordmark -->
+    <div id="glp-wordmark">
+      <span class="glp-text">Go Local P</span><svg class="glp-pin-letter" viewBox="0 0 11 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M5.5 0C2.46 0 0 2.46 0 5.5C0 9.63 5.5 18 5.5 18C5.5 18 11 9.63 11 5.5C11 2.46 8.54 0 5.5 0Z" fill="#EA4335"/><circle cx="5.5" cy="5.5" r="2.2" fill="white"/></svg><span class="glp-text">n</span>
     </div>
-    <div id="hdr-right">
-      <div id="hdr-pill"></div>
-      <div id="hdr-client-name"></div>
+    <div id="roster-header">
+      <!-- Rendered by renderRoster() -->
     </div>
-  </header>
-
-  <!-- ─────────── PANELS ─────────── -->
-  <div id="panels-wrap">
-    <div id="carousel">
-
-      <!-- PANEL 1: BROWSER -->
-      <div class="panel" id="panel-browser">
-        <div class="panel-head">
-          <div class="panel-head-top">
-            <span class="panel-cap">Client Roster</span>
-            <span class="panel-sub" id="client-count"></span>
-          </div>
-          <div class="filter-row" id="filter-bar"></div>
-          <div class="sort-row">
-            <span class="sort-lbl">Sort by</span>
-            <select id="sort-sel" class="sort-sel">
-              <option value="trend">Trend</option>
-              <option value="rank">Rank</option>
-              <option value="name">Name</option>
-              <option value="tier">Tier</option>
-            </select>
-          </div>
-        </div>
-        <div class="panel-body">
-          <ul class="client-list" id="client-list"></ul>
-        </div>
-      </div>
-
-      <!-- PANEL 2: DETAIL VIEW -->
-      <div class="panel" id="panel-detail">
-        <div class="panel-head">
-          <div class="panel-head-top" style="padding-bottom: 10px;">
-            <span class="panel-cap">GBP Performance</span>
-          </div>
-        </div>
-        <div class="panel-body" id="detail-body"></div>
-      </div>
-
-      <!-- PANEL 3: CONTROLLER -->
-      <div class="panel" id="panel-controller">
-        <div class="panel-head">
-          <div class="panel-head-top" style="padding-bottom: 10px;">
-            <span class="panel-cap">Operator Controls</span>
-          </div>
-        </div>
-        <div class="panel-body" id="ctl-body"></div>
-      </div>
-
+    <div id="roster-list">
+      <!-- Rendered by renderRoster() -->
     </div>
   </div>
 
-  <!-- ─────────── DOT NAV ─────────── -->
-  <nav id="dot-nav">
-    <button class="dot on" data-i="0" aria-label="Client Roster"></button>
-    <button class="dot"    data-i="1" aria-label="GBP Performance"></button>
-    <button class="dot"    data-i="2" aria-label="Controls"></button>
-  </nav>
+  <!-- Column 2: Detail Panel (flex) -->
+  <div id="detail-panel">
+    <div id="detail-content" class="detail-empty">Select a client to review</div>
+  </div>
 
-</div><!-- #app -->
+  <!-- Column 3: Operator Controls (280px fixed) -->
+  <div id="controls">
+    <div id="controls-body">
+      <!-- Spec: "always visible regardless of whether a client is selected" -->
+      <button id="btn-client-view">Show Client View</button>
+    </div>
+  </div>
 
-<div id="toast"></div>
+</div>
 
 <!-- ============================================================
-     JAVASCRIPT — CENTRAL STATE + RENDERS
+     STANDALONE S2 PREVIEW
+     Visible only when URL contains ?view=client
+     Spec: "render only S2 centered on the page so it can be tested in isolation"
 ============================================================ -->
-<script>
-'use strict';
+<div id="s2-preview-wrapper">
+  <div class="s2-preview-device" id="s2-preview-device">
+    <!-- Rendered by initStandalonePreview() -->
+  </div>
+</div>
 
-/* ──────────────────────────────────────────
-   CENTRAL STATE  (single source of truth)
-────────────────────────────────────────── */
-const S = {
-  selectedClientId: 'c001',
-  activeFilter: 'All',
-  sortBy: 'trend',
-  viewMode: 'operator',
-  notes: {},
+<!-- Toast element (used by share button clipboard fallback) -->
+<div class="s2-toast" id="s2-toast"></div>
+
+<script>
+
+/* ============================================================
+   STATE OBJECT
+   Spec § State Object Structure:
+   "All three screens read from and write to one centralized state object.
+    No screen manages its own state."
+   "Every UI interaction writes to this object first."
+============================================================ */
+const REFERENCE_DATE = new Date('2025-04-22'); // Prototype reference date per brief data
+
+const state = {
+  selectedClientId: null,
+  clientViewActive: false,
+  rosterSortAsc:    false,
 
   clients: [
+    /* — Client 001 ————————————————————————————————————————————— */
     {
-      id: 'c001', name: 'Apex Roofing ATL',
-      owner: 'Marcus Webb', phone: '(404) 555-0192',
-      neighborhood: 'East Atlanta',
-      status: 'Active', tier: 'Starter',
-      gbp: { impressions: 4820, calls: 38, dirReq: 14, webClicks: 22,
-             reviews: 31, rating: 4.7, lastPost: '2026-04-14',
-             rank: 2, trend: 'up', spark: [3200, 3800, 4300, 4820] }
+      id: 'client_001',
+      name: 'Reyes Premier Roofing',
+      score: 74,
+      scorePrevious: 70,
+      status: 'on_track',
+      alertFlag: null,
+      lastUpdated: '2025-04-20',
+      operatorNote: '',
+      checkinDate: null,
+      operatorReviewedDate: '2025-04-21',
+      factors: {
+        visibility:  16,
+        momentum:    14,
+        engagement:  15,
+        reputation:  18,
+        activity:    11
+      },
+      activityFeed: [
+        { date: '2025-04-20', action: 'Review responded to' },
+        { date: '2025-04-18', action: 'Post published'     }
+      ]
     },
+    /* — Client 002 ————————————————————————————————————————————— */
     {
-      id: 'c002', name: 'Southern Shield Roofing',
-      owner: 'DeShawn Carter', phone: '(678) 555-0341',
-      neighborhood: 'Decatur',
-      status: 'Needs Attention', tier: 'Growth',
-      gbp: { impressions: 2940, calls: 19, dirReq: 8, webClicks: 11,
-             reviews: 17, rating: 4.2, lastPost: '2026-03-28',
-             rank: 3, trend: 'down', spark: [4100, 3700, 3200, 2940] }
+      id: 'client_002',
+      name: 'Martinez HVAC Services',
+      score: 38,
+      scorePrevious: 43,
+      status: 'needs_attention',
+      alertFlag: '1 unanswered review',
+      lastUpdated: '2025-04-19',
+      operatorNote: '',
+      checkinDate: null,
+      operatorReviewedDate: null,
+      factors: {
+        visibility:  8,
+        momentum:    6,
+        engagement:  7,
+        reputation:  11,
+        activity:    6
+      },
+      activityFeed: [
+        { date: '2025-04-15', action: 'Photo added'    },
+        { date: '2025-04-10', action: 'Post published' }
+      ]
     },
+    /* — Client 003 ————————————————————————————————————————————— */
     {
-      id: 'c003', name: 'ATL Pro Roofers',
-      owner: 'James Okafor', phone: '(770) 555-0876',
-      neighborhood: 'Buckhead',
-      status: 'Active', tier: 'Pro',
-      gbp: { impressions: 7650, calls: 72, dirReq: 31, webClicks: 54,
-             reviews: 89, rating: 4.9, lastPost: '2026-04-18',
-             rank: 1, trend: 'up', spark: [5800, 6400, 7100, 7650] }
+      id: 'client_003',
+      name: 'Gulf Coast Plumbing',
+      score: 55,
+      scorePrevious: 55,
+      status: 'watch',
+      alertFlag: null,
+      lastUpdated: '2025-04-14', /* 8 days ago → triggers stale sort bucket */
+      operatorNote: '',
+      checkinDate: null,
+      operatorReviewedDate: '2025-04-14',
+      factors: {
+        visibility:  12,
+        momentum:    10,
+        engagement:  11,
+        reputation:  13,
+        activity:     9
+      },
+      activityFeed: [
+        { date: '2025-04-14', action: 'Review responded to' },
+        { date: '2025-04-11', action: 'Post published'      },
+        { date: '2025-04-09', action: 'Photo added'         }
+      ]
     },
+    /* — Client 004 ————————————————————————————————————————————— */
     {
-      id: 'c004', name: 'Buckhead Roofing Co.',
-      owner: 'Sandra Tran', phone: '(404) 555-0554',
-      neighborhood: 'Buckhead',
-      status: 'Onboarding', tier: 'Starter',
-      gbp: { impressions: 890, calls: 6, dirReq: 2, webClicks: 4,
-             reviews: 5, rating: 4.0, lastPost: '2026-04-01',
-             rank: null, trend: 'flat', spark: [820, 850, 870, 890] }
+      id: 'client_004',
+      name: 'Apex Roofing Group',
+      score: 61,
+      scorePrevious: 58,
+      status: 'watch',
+      alertFlag: '2 unanswered reviews',
+      lastUpdated: '2025-04-20',
+      operatorNote: '',
+      checkinDate: null,
+      operatorReviewedDate: null,
+      factors: {
+        visibility:  13,
+        momentum:    12,
+        engagement:  11,
+        reputation:  14,
+        activity:    11
+      },
+      activityFeed: [
+        { date: '2025-04-20', action: 'Post published' },
+        { date: '2025-04-17', action: 'Photo added'    }
+      ]
     },
+    /* — Client 005 ————————————————————————————————————————————— */
     {
-      id: 'c005', name: 'Pinnacle Roofing',
-      owner: 'Robert Mills', phone: '(678) 555-0219',
-      neighborhood: 'Marietta',
-      status: 'Paused', tier: 'Growth',
-      gbp: { impressions: 1230, calls: 9, dirReq: 5, webClicks: 7,
-             reviews: 22, rating: 4.4, lastPost: '2026-03-15',
-             rank: 2, trend: 'flat', spark: [1300, 1270, 1250, 1230] }
+      id: 'client_005',
+      name: 'Premier Air Solutions',
+      score: 82,
+      scorePrevious: 79,
+      status: 'on_track',
+      alertFlag: null,
+      lastUpdated: '2025-04-21',
+      operatorNote: '',
+      checkinDate: '2025-04-28',
+      operatorReviewedDate: '2025-04-21',
+      factors: {
+        visibility:  18,
+        momentum:    17,
+        engagement:  16,
+        reputation:  18,
+        activity:    13
+      },
+      activityFeed: [
+        { date: '2025-04-21', action: 'Post published'      },
+        { date: '2025-04-20', action: 'Review responded to' },
+        { date: '2025-04-19', action: 'Photo added'         },
+        { date: '2025-04-17', action: 'Post published'      }
+      ]
     },
+    /* — Client 006 ————————————————————————————————————————————— */
     {
-      id: 'c006', name: 'Summit Roof Solutions',
-      owner: 'Alicia Morales', phone: '(404) 555-0731',
-      neighborhood: 'Midtown',
-      status: 'Active', tier: 'Pro',
-      gbp: { impressions: 6120, calls: 58, dirReq: 24, webClicks: 41,
-             reviews: 64, rating: 4.8, lastPost: '2026-04-19',
-             rank: 1, trend: 'up', spark: [4200, 4900, 5500, 6120] }
+      id: 'client_006',
+      name: 'Sunshine Roofing Co.',
+      score: 47,
+      scorePrevious: 47,
+      status: 'watch',
+      alertFlag: null,
+      lastUpdated: '2025-04-21',
+      operatorNote: '',
+      checkinDate: null,
+      operatorReviewedDate: null,
+      factors: {
+        visibility:  10,
+        momentum:     9,
+        engagement:   9,
+        reputation:  12,
+        activity:     7
+      },
+      activityFeed: [
+        { date: '2025-04-21', action: 'Photo added' }
+      ]
     }
   ]
 };
 
-/* ──────────────────────────────────────────
-   STATE MANAGEMENT
-────────────────────────────────────────── */
-function setState(patch) {
-  const clientChanging = patch.selectedClientId &&
-                         patch.selectedClientId !== S.selectedClientId;
-  Object.assign(S, patch);
-  renderBrowser();
-  clientChanging ? fadeDetail() : renderDetail();
-  renderController();
-  renderHeader();
-}
 
-/* ──────────────────────────────────────────
+/* ============================================================
    HELPERS
-────────────────────────────────────────── */
-const TODAY = new Date('2026-04-20');
+============================================================ */
 
-function daysSince(ds)   { return Math.floor((TODAY - new Date(ds)) / 86400000); }
-function initials(n)     { return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
-function selected()      { return S.clients.find(c => c.id === S.selectedClientId) || S.clients[0]; }
-function slugStatus(s)   { return s.replace(/\s/g, ''); }
+/* Maps tier string → CSS color token string */
+function tierColor(tier) {
+  if (tier === 'excellent' || tier === 'good') return 'var(--score-green)';
+  if (tier === 'fair')                          return 'var(--score-yellow)';
+  if (tier === 'poor')                          return 'var(--score-red)';
+  return 'var(--text-secondary)';
+}
 
-function filteredSorted() {
-  let list = [...S.clients];
-  if (S.activeFilter !== 'All') list = list.filter(c => c.status === S.activeFilter);
-  const tOrd  = { up:0, flat:1, down:2 };
-  const tiOrd = { Pro:0, Growth:1, Starter:2 };
-  switch (S.sortBy) {
-    case 'trend': list.sort((a,b) => tOrd[a.gbp.trend]  - tOrd[b.gbp.trend]); break;
-    case 'rank':  list.sort((a,b) => (a.gbp.rank??99)   - (b.gbp.rank??99)); break;
-    case 'name':  list.sort((a,b) => a.name.localeCompare(b.name)); break;
-    case 'tier':  list.sort((a,b) => tiOrd[a.tier]      - tiOrd[b.tier]); break;
+/* Delta direction color */
+function deltaColor(current, previous) {
+  if (current > previous) return 'var(--score-green)';
+  if (current < previous) return 'var(--score-red)';
+  return 'var(--text-secondary)';
+}
+
+/* Delta label string: "↑4", "↓5", "–" */
+function deltaText(current, previous) {
+  const d = current - previous;
+  if (d > 0) return `↑${d}`;
+  if (d < 0) return `↓${Math.abs(d)}`;
+  return '–';
+}
+
+/* "Apr 20" from "2025-04-20" — avoids timezone offset issues */
+function fmtDate(dateStr) {
+  const [, , day] = dateStr.split('-');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun',
+                  'Jul','Aug','Sep','Oct','Nov','Dec'];
+  const m = parseInt(dateStr.split('-')[1], 10) - 1;
+  return `${months[m]} ${parseInt(day, 10)}`;
+}
+
+/* Days since a date string, relative to REFERENCE_DATE */
+function daysSince(dateStr) {
+  return Math.floor(
+    (REFERENCE_DATE - new Date(dateStr)) / (1000 * 60 * 60 * 24)
+  );
+}
+
+/* Phase 2: tier label text
+   Spec § Score Tier Definitions */
+function tierLabelText(tier) {
+  if (tier === 'excellent') return 'Dominating';
+  if (tier === 'good')      return 'On Track';
+  if (tier === 'fair')      return 'Building';
+  if (tier === 'poor')      return 'Needs Work';
+  return '';
+}
+
+/* Derive tier string from a score number.
+   Spec § Score Tier Definitions: Poor 0–39, Fair 40–59, Good 60–79, Excellent 80–100 */
+function getTier(score) {
+  if (score >= 80) return 'excellent';
+  if (score >= 60) return 'good';
+  if (score >= 40) return 'fair';
+  return 'poor';
+}
+
+/* Returns true when score crossed into a strictly higher tier than scorePrevious. */
+function getTierUpgrade(score, scorePrevious) {
+  const RANK = { poor: 0, fair: 1, good: 2, excellent: 3 };
+  return RANK[getTier(score)] > RANK[getTier(scorePrevious)];
+}
+
+/* Phase 2: escape HTML for safe text injection */
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+
+/* ============================================================
+   AUTO-SORT
+   Spec § Column 1: Client Roster > Auto-sort order:
+   1. Score dropped this week (largest drop first)
+   2. Unanswered reviews present
+   3. Last updated more than 5 days ago
+   4. All other accounts (sorted by score ascending — lowest scores first)
+============================================================ */
+function sortedClients() {
+  function bucket(c) {
+    if (c.scorePrevious - c.score > 0) return 0; /* dropped */
+    const hasReviewAlert = c.alertFlag &&
+      c.alertFlag.toLowerCase().includes('review');
+    if (hasReviewAlert)           return 1; /* review alert, no drop */
+    if (daysSince(c.lastUpdated) > 5) return 2; /* stale, no drop, no review */
+    return 3;                                   /* everything else */
   }
-  return list;
+
+  const sorted = [...state.clients].sort((a, b) => {
+    const bA = bucket(a);
+    const bB = bucket(b);
+
+    if (bA !== bB) return bA - bB;
+
+    /* Bucket 0 tie-break: largest drop first */
+    if (bA === 0) {
+      return (b.scorePrevious - b.score) - (a.scorePrevious - a.score);
+    }
+
+    /* Bucket 3 tie-break: lowest score first */
+    if (bA === 3) {
+      return a.score - b.score;
+    }
+
+    return 0;
+  });
+
+  return state.rosterSortAsc ? sorted.reverse() : sorted;
 }
 
-function pillHTML(status) {
-  return `<span class="pill pill-${slugStatus(status)}">${status}</span>`;
-}
-function tierHTML(tier) {
-  return `<span class="tier tier-${tier}">${tier}</span>`;
-}
-function trendHTML(t) {
-  const map = { up:['↑ Up','t-up'], down:['↓ Down','t-down'], flat:['→ Flat','t-flat'] };
-  const [lbl, cls] = map[t] || ['—','t-flat'];
-  return `<span class="trend ${cls}">${lbl}</span>`;
-}
-function rankBadge(r, compact = false) {
-  if (r === null || r === undefined) {
-    return compact ? `<span class="rank r-x">—</span>` : '';
-  }
-  const cls = ['r-1','r-2','r-3'][r-1] || 'r-x';
-  return `<span class="rank ${cls}">#${r}</span>`;
-}
-function getAction(c) {
-  const d = daysSince(c.gbp.lastPost);
-  if (d >= 7)                  return { i:'📅', t:`Schedule a GBP post — last post was ${d} days ago.` };
-  if (c.gbp.trend === 'down')  return { i:'🔍', t:'Run a citation audit — impressions are trending down.' };
-  if (c.gbp.reviews < 20)     return { i:'⭐', t:'Send review requests to recent customers to grow your rating.' };
-  if (c.gbp.rank === null)     return { i:'🗺', t:'Focus on citation building to enter the local 3-pack.' };
-  return                              { i:'✅', t:'GBP is performing well — keep the posting cadence consistent.' };
+
+/* ============================================================
+   STATE MUTATION
+   Spec: "Every UI interaction writes to this object first.
+          The UI re-renders from the object."
+============================================================ */
+function setState(patch) {
+  Object.assign(state, patch);
+  render();
 }
 
-/* ──────────────────────────────────────────
-   RENDER: GLOBAL HEADER
-────────────────────────────────────────── */
-function renderHeader() {
-  const c = selected();
-  document.getElementById('hdr-pill').innerHTML = pillHTML(c.status);
-  document.getElementById('hdr-client-name').textContent = c.name;
+function setClientState(clientId, patch) {
+  state.clients = state.clients.map(c =>
+    c.id === clientId ? { ...c, ...patch } : c
+  );
+  render();
 }
 
-/* ──────────────────────────────────────────
-   RENDER: PANEL 1 — BROWSER
-────────────────────────────────────────── */
-function renderBrowser() {
-  const filters = ['All','Active','Needs Attention','Onboarding','Paused'];
 
-  // Filter chips
-  document.getElementById('filter-bar').innerHTML = filters.map(f =>
-    `<button class="chip${S.activeFilter===f?' on':''}" data-f="${f}">${f}</button>`
-  ).join('');
+/* ============================================================
+   RENDER — ROSTER
+   Spec § S1 > Column 1: Client Roster
+============================================================ */
+function renderRoster() {
+  const list   = document.getElementById('roster-list');
+  const header = document.getElementById('roster-header');
+  const sorted = sortedClients();
 
-  // Sort select value
-  document.getElementById('sort-sel').value = S.sortBy;
+  /* Sort toggle buttons in the header */
+  header.innerHTML = `
+    <span class="roster-title">Clients</span>
+    <div class="sort-toggle">
+      <button class="sort-btn${!state.rosterSortAsc ? ' sort-btn-active' : ''}" data-dir="desc">Most urgent</button>
+      <button class="sort-btn${state.rosterSortAsc  ? ' sort-btn-active' : ''}" data-dir="asc">Least urgent</button>
+    </div>
+  `;
 
-  // Client list
-  const clients = filteredSorted();
-  const list = document.getElementById('client-list');
-  document.getElementById('client-count').textContent =
-    `${clients.length} client${clients.length !== 1 ? 's' : ''}`;
+  header.querySelectorAll('.sort-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      setState({ rosterSortAsc: btn.dataset.dir === 'asc' });
+    });
+  });
 
-  if (!clients.length) {
-    list.innerHTML = `<li><div class="empty">
-      <div class="empty-ico">🔍</div>
-      <div class="empty-txt">No clients match this filter</div>
-    </div></li>`;
+  list.innerHTML = sorted.map(client => {
+    const tc    = tierColor(getTier(client.score));
+    const dc    = deltaColor(client.score, client.scorePrevious);
+    const dt    = deltaText(client.score, client.scorePrevious);
+    const isSel = state.selectedClientId === client.id;
+
+    return `
+      <div
+        class="roster-row${isSel ? ' selected' : ''}"
+        data-id="${client.id}"
+        id="row-${client.id}"
+        role="button"
+        tabindex="0"
+        aria-label="${client.name}, score ${client.score}"
+      >
+
+        <!-- Left: info stack -->
+        <div class="row-info">
+          <div class="row-name">${client.name}</div>
+
+          <div class="row-meta">
+            <span class="row-delta" style="color:${dc}">${dt}</span>
+            ${client.alertFlag
+              ? `<span class="row-alert">⚠ ${client.alertFlag}</span>`
+              : ''}
+          </div>
+
+          <div class="row-timestamp">Updated ${fmtDate(client.lastUpdated)}</div>
+        </div>
+
+        <!-- Right: score number (hidden on hover to show pills) -->
+        <div class="row-score-display">
+          <span class="row-score" style="color:${tc}">${client.score}</span>
+        </div>
+
+        <!-- Hover: status pills (right edge)
+             Spec: "visible on row hover only"
+             Spec: "clicking sets status, fires row confirmation animation" -->
+        <div class="row-pills">
+          <button
+            class="status-pill pill-on-track${client.status === 'on_track' ? ' is-active' : ''}"
+            data-id="${client.id}"
+            data-status="on_track"
+          >On Track</button>
+          <button
+            class="status-pill pill-watch${client.status === 'watch' ? ' is-active' : ''}"
+            data-id="${client.id}"
+            data-status="watch"
+          >Watch</button>
+          <button
+            class="status-pill pill-needs-attention${client.status === 'needs_attention' ? ' is-active' : ''}"
+            data-id="${client.id}"
+            data-status="needs_attention"
+          >Needs Attention</button>
+        </div>
+
+
+      </div>
+    `;
+  }).join('');
+
+  /* Bind row click → select client */
+  list.querySelectorAll('.roster-row').forEach(row => {
+    row.addEventListener('click', e => {
+      /* Don't fire selection if a pill was clicked */
+      if (e.target.closest('.status-pill')) return;
+      setState({ selectedClientId: row.dataset.id });
+    });
+
+    /* Keyboard accessibility */
+    row.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        setState({ selectedClientId: row.dataset.id });
+      }
+    });
+  });
+
+  /* Bind pill click → set status + feedback */
+  list.querySelectorAll('.status-pill').forEach(pill => {
+    pill.addEventListener('click', e => {
+      e.stopPropagation();
+      const id     = pill.dataset.id;
+      const status = pill.dataset.status;
+
+      /* Write to state first */
+      setClientState(id, { status });
+
+      /* Flash animation */
+      const row = document.getElementById(`row-${id}`);
+      if (row) {
+        row.classList.add('row-flashing');
+        setTimeout(() => row.classList.remove('row-flashing'), 300);
+      }
+    });
+  });
+}
+
+
+/* ============================================================
+   RENDER — DETAIL PANEL
+   Phase 2: full loaded state.
+   Spec § S1 > Column 2: Detail Panel
+   Phase 3 addition: if clientViewActive, defer to renderS3().
+============================================================ */
+function renderDetail() {
+
+  /* Phase 3: client view toggle takes over detail panel + controls */
+  if (state.clientViewActive) {
+    renderS3();
     return;
   }
 
-  list.innerHTML = clients.map(c => `
-    <li class="c-row${c.id === S.selectedClientId ? ' sel' : ''}" data-id="${c.id}">
-      <div class="avatar">${initials(c.name)}</div>
-      <div class="c-info">
-        <div class="c-name">${c.name}</div>
-        <div class="c-meta">
-          ${pillHTML(c.status)}
-          <span class="c-hood">· ${c.neighborhood}</span>
-        </div>
-      </div>
-      <div class="c-right">
-        ${trendHTML(c.gbp.trend)}
-        ${rankBadge(c.gbp.rank, true)}
-      </div>
-    </li>
-  `).join('');
+  /* Restore detail panel background if returning from S3 */
+  document.getElementById('detail-panel').style.background = '';
 
-  // Events — client rows
-  list.querySelectorAll('.c-row').forEach(row => {
-    row.addEventListener('click', () => setState({ selectedClientId: row.dataset.id }));
-  });
+  const content = document.getElementById('detail-content');
 
-  // Events — filter chips
-  document.getElementById('filter-bar').querySelectorAll('.chip').forEach(chip => {
-    chip.addEventListener('click', () => setState({ activeFilter: chip.dataset.f }));
-  });
-}
-
-/* ──────────────────────────────────────────
-   RENDER: PANEL 2 — DETAIL VIEW
-────────────────────────────────────────── */
-function renderDetail() {
-  const c = selected();
-  const g = c.gbp;
-  const days = daysSince(g.lastPost);
-  const action = getAction(c);
-
-  // Sparkline
-  const maxV = Math.max(...g.spark);
-  const sparkBars = g.spark.map((v, i) => {
-    const h = Math.round((v / maxV) * 100);
-    const isNow = i === g.spark.length - 1;
-    return `<div class="spark-bar${isNow?' now':''}" style="height:${h}%"></div>`;
-  }).join('');
-
-  // Week-over-week %
-  const pct   = Math.round(((g.spark[3] - g.spark[2]) / g.spark[2]) * 100);
-  const pSign  = pct >= 0 ? '+' : '';
-  const pCls   = pct > 0 ? 't-up' : pct < 0 ? 't-down' : 't-flat';
-
-  // Rank display
-  const rankNumClass = g.rank ? `rh-${g.rank}` : 'rh-x';
-  const rankDisplay  = g.rank ? `#${g.rank}` : '—';
-  const rankWarn     = !g.rank ? '<div class="rh-warn">Outside Top 3</div>' : '';
-
-  document.getElementById('detail-body').innerHTML = `
-
-    <!-- Client header -->
-    <div class="d-hdr">
-      <div class="d-name">${c.name}</div>
-      <div class="d-owner">
-        <span>${c.owner}</span>
-        <span class="d-sep">·</span>
-        <a href="tel:${c.phone}">${c.phone}</a>
-        <span class="d-sep">·</span>
-        <span>${c.neighborhood}</span>
-      </div>
-      <div class="d-badges">
-        ${pillHTML(c.status)}
-        ${tierHTML(c.tier)}
-      </div>
-    </div>
-
-    <!-- Map Pack Rank hero -->
-    <div class="rank-hero">
-      <div class="rh-num ${rankNumClass}">${rankDisplay}</div>
-      <div>
-        <div class="rh-lbl">Map Pack Rank</div>
-        <div class="rh-term">"roofing contractor ${c.neighborhood}"</div>
-        ${rankWarn}
-      </div>
-    </div>
-
-    <!-- Key Metrics -->
-    <div class="dsect">
-      <div class="dsect-hd">30-Day Performance</div>
-      <div class="metrics-grid">
-        <div class="metric">
-          <div class="metric-lbl">👁 Impressions</div>
-          <div class="metric-val">${g.impressions.toLocaleString()}</div>
-          <div class="metric-sub"><span class="trend ${pCls}">${pSign}${pct}%</span> vs prior week</div>
-        </div>
-        <div class="metric">
-          <div class="metric-lbl">📞 Calls</div>
-          <div class="metric-val">${g.calls}</div>
-          <div class="metric-sub">from GBP listing</div>
-        </div>
-        <div class="metric">
-          <div class="metric-lbl">🗺 Directions</div>
-          <div class="metric-val">${g.dirReq}</div>
-          <div class="metric-sub">direction requests</div>
-        </div>
-        <div class="metric">
-          <div class="metric-lbl">🖱 Website</div>
-          <div class="metric-val">${g.webClicks}</div>
-          <div class="metric-sub">website clicks</div>
-        </div>
-        <div class="metric">
-          <div class="metric-lbl">⭐ Rating</div>
-          <div class="metric-val">${g.rating}</div>
-          <div class="metric-sub">${g.reviews} reviews</div>
-        </div>
-        <div class="metric">
-          <div class="metric-lbl">📅 Last Post</div>
-          <div class="metric-val sm${days >= 7 ? ' red' : ''}">${days}d ago</div>
-          <div class="metric-sub${days >= 7 ? ' warn' : ''}">${days >= 7 ? '⚠ Post overdue' : 'Up to date'}</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Sparkline -->
-    <div class="dsect">
-      <div class="dsect-hd">Impressions Trend · 4 Weeks</div>
-      <div class="spark-bars">${sparkBars}</div>
-      <div class="spark-xaxis">
-        <span class="spark-xl">W–3</span>
-        <span class="spark-xl">W–2</span>
-        <span class="spark-xl">W–1</span>
-        <span class="spark-xl">Now</span>
-      </div>
-    </div>
-
-    <!-- Next Recommended Action -->
-    <div class="next-action">
-      <div class="na-ico">${action.i}</div>
-      <div>
-        <div class="na-lbl">Next Recommended Action</div>
-        <div class="na-txt">${action.t}</div>
-      </div>
-    </div>
-  `;
-}
-
-// Fade transition on client switch
-let fadeTimer;
-function fadeDetail() {
-  const el = document.getElementById('panel-detail');
-  el.style.opacity = '0';
-  clearTimeout(fadeTimer);
-  fadeTimer = setTimeout(() => {
-    renderDetail();
-    el.style.opacity = '1';
-  }, 130);
-}
-
-/* ──────────────────────────────────────────
-   RENDER: PANEL 3 — CONTROLLER
-────────────────────────────────────────── */
-function renderController() {
-  const c   = selected();
-  const el  = document.getElementById('ctl-body');
-  const note = S.notes[c.id] || '';
-
-  const toggleHTML = `
-    <div class="ctl-sec">
-      <div class="ctl-lbl">View Mode</div>
-      <div class="vtoggle">
-        <button class="vt-btn${S.viewMode==='operator'?' on':''}" data-m="operator">Operator</button>
-        <button class="vt-btn${S.viewMode==='client'?' on':''}"   data-m="client">Client</button>
-      </div>
-    </div>
-  `;
-
-  if (S.viewMode === 'client') {
-    const msgs = {
-      up:   ['📈', 'Your GBP is performing well this week.',
-             `${g(c).impressions.toLocaleString()} impressions · ${g(c).calls} calls · ⭐ ${g(c).rating}`],
-      down: ['📉', "Your GBP needs some attention — we're on it.",
-             'Impressions are down. Your team has flagged this for audit.'],
-      flat: ['📊', 'Your GBP is holding steady.',
-             `${g(c).impressions.toLocaleString()} impressions · ${g(c).calls} calls this month`]
-    };
-    const [emo, msg, sub] = msgs[c.gbp.trend] || msgs.flat;
-
-    el.innerHTML = `
-      ${toggleHTML}
-      <div class="cc-card">
-        <div class="cc-emo">${emo}</div>
-        <div class="cc-msg">${msg}</div>
-        <div class="cc-sub">${sub}</div>
-      </div>
-      <div class="ctl-sec">
-        <div class="ctl-note">
-          Viewing <strong>${c.name}</strong>'s data only.<br>
-          Switch to Operator view to access controls.
-        </div>
-      </div>
-    `;
-  } else {
-    el.innerHTML = `
-      ${toggleHTML}
-
-      <div class="ctl-sec">
-        <div class="ctl-lbl">Client Status — ${c.name}</div>
-        <select class="sts-sel" id="sts-sel">
-          ${['Active','Needs Attention','Onboarding','Paused'].map(s =>
-            `<option value="${s}"${c.status===s?' selected':''}>${s}</option>`
-          ).join('')}
-        </select>
-      </div>
-
-      <div class="ctl-sec">
-        <div class="ctl-lbl">Quick Actions</div>
-        <div class="qa-list">
-          <button class="qa-btn" data-a="copy"><span class="qa-ic">📋</span>Copy Report Link</button>
-          <button class="qa-btn" data-a="send"><span class="qa-ic">📬</span>Send Update to Client</button>
-          <button class="qa-btn" data-a="audit"><span class="qa-ic">🔍</span>Run GBP Audit</button>
-        </div>
-      </div>
-
-      <div class="ctl-sec">
-        <div class="ctl-lbl">Internal Note</div>
-        <textarea class="note-area" id="note-area" rows="3"
-          placeholder="Tag a note on ${c.name}…">${note}</textarea>
-      </div>
-    `;
+  if (!state.selectedClientId) {
+    content.className = 'detail-empty';
+    content.innerHTML = 'Select a client to review';
+    return;
   }
 
-  // Helper to access gbp (avoids shadowing)
-  function g(client) { return client.gbp; }
+  const c = state.clients.find(cl => cl.id === state.selectedClientId);
+  if (!c) {
+    content.className = 'detail-empty';
+    content.innerHTML = 'Select a client to review';
+    return;
+  }
 
-  // Bind: view toggle
-  el.querySelectorAll('.vt-btn').forEach(btn => {
-    btn.addEventListener('click', () => setState({ viewMode: btn.dataset.m }));
-  });
+  content.className = 'detail-loaded';
 
-  // Bind: status select
-  const ss = el.querySelector('#sts-sel');
-  if (ss) {
-    ss.addEventListener('change', () => {
-      S.clients = S.clients.map(cl =>
-        cl.id === S.selectedClientId ? { ...cl, status: ss.value } : cl
-      );
-      renderBrowser();
-      renderDetail();
-      renderController();
-      renderHeader();
-      toast(`Status → "${ss.value}"`);
+  const tc = tierColor(getTier(c.score));
+  const dc = deltaColor(c.score, c.scorePrevious);
+  const dt = deltaText(c.score, c.scorePrevious);
+
+  /* ---- Factor card definitions ----
+     Spec § Column 2: Score breakdown section
+     Factor names → plain language labels (from spec table)
+     Plus one-sentence description of what the score means.
+  ================================================================ */
+  const FACTOR_DEFS = [
+    {
+      key:   'visibility',
+      label: 'Shows up in searches',
+      desc:  'How often your business appears when nearby customers search for your services.'
+    },
+    {
+      key:   'momentum',
+      label: 'Getting more attention over time',
+      desc:  'Whether your profile views and search impressions have been trending upward this week.'
+    },
+    {
+      key:   'engagement',
+      label: 'People are clicking and calling',
+      desc:  'How many visitors took action — calls, direction requests, or website clicks — from your profile.'
+    },
+    {
+      key:   'reputation',
+      label: 'Reviews and ratings',
+      desc:  'Your average star rating and how consistently you respond to customer reviews.'
+    },
+    {
+      key:   'activity',
+      label: 'Profile is kept up to date',
+      desc:  'Recency of posts, photos, and edits that signal to Google your profile is actively managed.'
+    }
+  ];
+
+  /* Map factor score (0–20) to a tier for bar color */
+  function factorTier(score) {
+    if (score >= 17) return 'excellent';
+    if (score >= 13) return 'good';
+    if (score >=  8) return 'fair';
+    return 'poor';
+  }
+
+  /* Build factor cards HTML
+     Spec: "2-column grid (last card full-width if odd number)" */
+  const factorCardsHtml = FACTOR_DEFS.map((f, i) => {
+    const score   = c.factors[f.key];
+    const pct     = Math.round((score / 20) * 100);
+    const barColor = tierColor(factorTier(score));
+    const isLastOdd = (i === FACTOR_DEFS.length - 1) && (FACTOR_DEFS.length % 2 !== 0);
+
+    return `
+      <div class="factor-card${isLastOdd ? ' factor-card-full' : ''}">
+        <div class="factor-header">
+          <span class="factor-label">${f.label}</span>
+          <span class="factor-score">${score}<span class="factor-max">/20</span></span>
+        </div>
+        <div class="factor-bar-track">
+          <div class="factor-bar-fill" style="width:${pct}%; background:${barColor};"></div>
+        </div>
+        <div class="factor-desc">${f.desc}</div>
+      </div>
+    `;
+  }).join('');
+
+  /* Build activity feed HTML
+     Spec: "Maximum 5 items shown." */
+  const feedHtml = c.activityFeed.slice(0, 5).map(item => `
+    <div class="activity-item">
+      <span class="activity-action">${escHtml(item.action)}</span>
+      <span class="activity-date">${fmtDate(item.date)}</span>
+    </div>
+  `).join('');
+
+  /* Saved note display
+     Spec: "Saved notes display above the input field with timestamp" */
+  const savedNoteHtml = c.operatorNote
+    ? `<div class="saved-note">
+         <span class="saved-note-text">${escHtml(c.operatorNote)}</span>
+         <span class="saved-note-ts">${c.noteTimestamp ? `Saved ${fmtDate(c.noteTimestamp)}` : 'Saved'}</span>
+       </div>`
+    : '';
+
+  /* Delta display — "14px, direction arrow + number" */
+  const deltaDisplay = dt === '–' ? `${dt} this week` : `${dt} this week`;
+
+  content.innerHTML = `
+
+    <!-- Sticky header
+         Spec: client name 18px/600, score 32px/700 tier color,
+               delta 14px, two links 13px --accent-blue -->
+    <div class="detail-header">
+      <div class="detail-header-top">
+        <span class="detail-client-name">${escHtml(c.name)}</span>
+        <span class="detail-score" style="color:${tc}">${c.score}</span>
+      </div>
+      <div class="detail-header-sub">
+        <span class="detail-delta" style="color:${dc}">${deltaDisplay}</span>
+        <div class="detail-links">
+          <a href="https://localfalcon.com/login" target="_blank" rel="noopener" class="detail-link">View in Local Falcon ↗</a>
+          <a href="https://www.brightlocal.com/login/" target="_blank" rel="noopener" class="detail-link">Open in BrightLocal ↗</a>
+        </div>
+      </div>
+      ${c.alertFlag ? `
+      <div class="detail-alert-banner">
+        ⚠ ${escHtml(c.alertFlag)} — respond to maintain your reputation score
+      </div>` : ''}
+    </div>
+
+    <!-- Scrollable body -->
+    <div class="detail-body">
+
+      <!-- Score breakdown
+           Spec: "Five factor cards in a 2-column grid" -->
+      <section class="detail-section">
+        <h2 class="section-header">Score breakdown</h2>
+        <div class="factor-grid">${factorCardsHtml}</div>
+      </section>
+
+      <!-- Activity feed
+           Spec: "Recent activity — 14px, weight 500. List of timestamped actions. Max 5 items." -->
+      <section class="detail-section">
+        <h2 class="section-header">Recent activity</h2>
+        <div class="activity-feed">${feedHtml || '<div style="font-size:14px;color:var(--text-secondary);padding:8px 0;">No recent activity</div>'}</div>
+      </section>
+
+      <!-- Operator note
+           Spec: "Plain text input. No submit button — note saves on blur.
+                  Saved notes display above the input field with timestamp." -->
+      <section class="detail-section">
+        <h2 class="section-header">Operator note</h2>
+        ${savedNoteHtml}
+        <textarea
+          class="note-input"
+          id="note-input-${c.id}"
+          placeholder="Add a note for this client..."
+          rows="3"
+        >${escHtml(c.operatorNote)}</textarea>
+        <button class="note-save-btn" id="note-save-${c.id}">Save note</button>
+      </section>
+
+    </div>
+  `;
+
+  /* Bind note save button → save to state (client view only sees saved notes) */
+  const noteInput = document.getElementById(`note-input-${c.id}`);
+  const noteSaveBtn = document.getElementById(`note-save-${c.id}`);
+  if (noteInput && noteSaveBtn) {
+    noteSaveBtn.addEventListener('click', () => {
+      const noteVal = noteInput.value.trim();
+      setClientState(c.id, {
+        operatorNote:  noteVal,
+        noteTimestamp: REFERENCE_DATE.toISOString().slice(0, 10)
+      });
+    });
+  }
+}
+
+
+/* ============================================================
+   RENDER — CONTROLS
+   Spec § S1 > Column 3: Operator Controls
+   "Show Client View" always visible.
+   Selected-client actions appear only when a client is selected.
+   Placeholder buttons shown at 50% opacity with tooltip.
+   Danger zone at bottom.
+   Phase 3: hide entire column when clientViewActive.
+============================================================ */
+function renderControls() {
+  const body = document.getElementById('controls-body');
+  const controlsEl = document.getElementById('controls');
+  if (!body || !controlsEl) return;
+
+  /* Phase 3: controls column is hidden during client view
+     Spec § S3: "detail panel and controls column are replaced by a centered mobile frame" */
+  if (state.clientViewActive) {
+    controlsEl.style.display = 'none';
+    return;
+  }
+
+  /* Restore column visibility */
+  controlsEl.style.display = '';
+
+  const c = state.selectedClientId
+    ? state.clients.find(cl => cl.id === state.selectedClientId)
+    : null;
+
+  /* ---- Always-visible: Show Client View button ---- */
+  const clientViewHtml = `
+    <button id="btn-client-view">Show Client View</button>
+  `;
+
+  /* ---- Selected-client actions (hidden when nothing selected) ----
+     Spec: "appear when a client is selected"
+  ============================================================ */
+  const selectedActionsHtml = c ? `
+    <div class="controls-divider"></div>
+
+    <span class="controls-section-label">Actions</span>
+
+    <div class="controls-action-group">
+
+      <!-- Mark as Reviewed
+           Spec: "clears the alert flag on the roster row,
+                  updates client view with 'Pedro reviewed this [day]'" -->
+      <button class="ctrl-btn${c.operatorReviewedDate ? ' ctrl-btn-reviewed' : ''}" id="btn-mark-reviewed">
+        ${c.operatorReviewedDate
+          ? `✓ Reviewed ${fmtDate(c.operatorReviewedDate)} — Undo`
+          : 'Mark as Reviewed'}
+      </button>
+
+      <!-- Schedule Check-in
+           Spec: "opens a simple date input, saves a check-in date" -->
+      <button class="ctrl-btn" id="btn-schedule-checkin">
+        ${c.checkinDate
+          ? `Check-in: ${fmtDate(c.checkinDate)}`
+          : 'Schedule Check-in'}
+      </button>
+      <div class="checkin-input-wrap" id="checkin-wrap">
+        <input
+          type="date"
+          class="checkin-input"
+          id="checkin-date-input"
+          value="${c.checkinDate || ''}"
+        />
+      </div>
+
+      <!-- Publish Post — opens GBP manager where Pedro can post as client manager -->
+      <a
+        href="https://business.google.com/locations"
+        target="_blank"
+        rel="noopener"
+        class="ctrl-btn ctrl-btn-gbp"
+      >Post to GBP ↗</a>
+
+      <!-- Request Review — opens GBP where Pedro can get the client's review link -->
+      <a
+        href="https://business.google.com/locations"
+        target="_blank"
+        rel="noopener"
+        class="ctrl-btn ctrl-btn-gbp"
+      >Get Review Link ↗</a>
+
+    </div>
+
+    <!-- Danger zone
+         Spec: "bottom of column. 'Remove Client' — 12px, --score-red, no background.
+                Clicking fires confirmation state." -->
+    <div class="controls-danger">
+      <div class="remove-confirm" id="remove-confirm">
+        <p class="remove-confirm-msg">
+          <strong>Are you sure?</strong> This cannot be undone.
+        </p>
+        <div class="remove-confirm-actions">
+          <button class="btn-cancel-remove" id="btn-cancel-remove">Cancel</button>
+          <button class="btn-confirm-remove" id="btn-confirm-remove">Remove</button>
+        </div>
+      </div>
+      <button class="ctrl-btn-danger" id="btn-remove-client">Remove Client</button>
+    </div>
+  ` : '';
+
+  body.innerHTML = clientViewHtml + selectedActionsHtml;
+
+  /* ---- Bind: Show Client View ---- */
+  const btnView = document.getElementById('btn-client-view');
+  if (btnView) {
+    btnView.onclick = () => {
+      if (!state.selectedClientId) {
+        btnView.textContent = 'Select a client first';
+        btnView.style.background = 'var(--text-secondary)';
+        setTimeout(() => {
+          btnView.textContent = 'Show Client View';
+          btnView.style.background = '';
+        }, 1600);
+        return;
+      }
+      setState({ clientViewActive: true });
+    };
+  }
+
+  if (!c) return; /* no client selected — binds below don't apply */
+
+  /* ---- Bind: Mark as Reviewed ----
+     Spec: "clears the alert flag on the roster row,
+            updates client view with 'Pedro reviewed this [day]'" */
+  const btnReviewed = document.getElementById('btn-mark-reviewed');
+  if (btnReviewed) {
+    btnReviewed.onclick = () => {
+      if (c.operatorReviewedDate) {
+        /* Already reviewed — undo it */
+        setClientState(c.id, { operatorReviewedDate: null });
+      } else {
+        /* Mark as reviewed today */
+        const today = REFERENCE_DATE.toISOString().slice(0, 10);
+        setClientState(c.id, { alertFlag: null, operatorReviewedDate: today });
+      }
+    };
+  }
+
+  /* ---- Bind: Schedule Check-in ----
+     Spec: "opens a simple date input, saves a check-in date" */
+  const btnCheckin = document.getElementById('btn-schedule-checkin');
+  const checkinWrap = document.getElementById('checkin-wrap');
+  const checkinInput = document.getElementById('checkin-date-input');
+
+  if (btnCheckin && checkinWrap) {
+    btnCheckin.onclick = () => {
+      checkinWrap.classList.toggle('open');
+      if (checkinWrap.classList.contains('open') && checkinInput) {
+        checkinInput.focus();
+      }
+    };
+  }
+
+  if (checkinInput) {
+    checkinInput.addEventListener('change', () => {
+      const val = checkinInput.value;
+      if (val) {
+        setClientState(c.id, { checkinDate: val });
+        /* Wrap closes after state write triggers re-render */
+      }
     });
   }
 
-  // Bind: quick actions
-  const qaMap = {
-    copy:  '📋 Report link copied to clipboard',
-    send:  '📬 Client update sent',
-    audit: '🔍 GBP Audit queued'
-  };
-  el.querySelectorAll('.qa-btn').forEach(btn => {
-    btn.addEventListener('click', () => toast(qaMap[btn.dataset.a]));
-  });
+  /* ---- Bind: Remove Client (danger zone) ----
+     Spec: "fires a confirmation state — two options: Cancel and Remove.
+            No actual removal logic needed — the confirmation state is the interaction." */
+  const btnRemove = document.getElementById('btn-remove-client');
+  const confirmBox = document.getElementById('remove-confirm');
 
-  // Bind: note
-  const na = el.querySelector('#note-area');
-  if (na) na.addEventListener('input', () => { S.notes[S.selectedClientId] = na.value; });
-}
-
-/* ──────────────────────────────────────────
-   TOAST
-────────────────────────────────────────── */
-let toastTimer;
-function toast(msg) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
-}
-
-/* ──────────────────────────────────────────
-   SORT SELECT (bound once on static element)
-────────────────────────────────────────── */
-document.getElementById('sort-sel').addEventListener('change', function() {
-  setState({ sortBy: this.value });
-});
-
-/* ──────────────────────────────────────────
-   DOT NAV + CAROUSEL SCROLL SYNC
-────────────────────────────────────────── */
-const carousel = document.getElementById('carousel');
-const dots     = document.querySelectorAll('.dot');
-
-function setActiveDot(i) {
-  dots.forEach((d, idx) => d.classList.toggle('on', idx === i));
-}
-
-dots.forEach(dot => {
-  dot.addEventListener('click', () => {
-    const i = parseInt(dot.dataset.i, 10);
-    carousel.scrollTo({ left: i * window.innerWidth, behavior: 'smooth' });
-    setActiveDot(i);
-  });
-});
-
-let scrollTick;
-carousel.addEventListener('scroll', () => {
-  clearTimeout(scrollTick);
-  scrollTick = setTimeout(() => {
-    const i = Math.round(carousel.scrollLeft / Math.max(window.innerWidth, 1));
-    setActiveDot(i);
-  }, 60);
-}, { passive: true });
-
-/* ──────────────────────────────────────────
-   ORIENTATION CHANGE
-   State persists; layout handled by CSS.
-   Only re-sync scroll position if needed.
-────────────────────────────────────────── */
-window.addEventListener('resize', () => {
-  // Re-snap to active panel after resize/orientation flip
-  const activeIdx = Array.from(dots).findIndex(d => d.classList.contains('on'));
-  if (activeIdx >= 0) {
-    carousel.scrollTo({ left: activeIdx * window.innerWidth, behavior: 'instant' });
+  if (btnRemove && confirmBox) {
+    btnRemove.onclick = () => {
+      confirmBox.classList.add('open');
+      btnRemove.style.display = 'none';
+    };
   }
-});
 
-/* ──────────────────────────────────────────
-   INIT
-────────────────────────────────────────── */
-function renderAll() {
-  renderBrowser();
-  renderDetail();
-  renderController();
-  renderHeader();
+  const btnCancelRemove = document.getElementById('btn-cancel-remove');
+  if (btnCancelRemove && confirmBox && btnRemove) {
+    btnCancelRemove.onclick = () => {
+      confirmBox.classList.remove('open');
+      btnRemove.style.display = '';
+    };
+  }
+
+  /* Spec: "No actual removal logic needed in prototype" */
+  const btnConfirmRemove = document.getElementById('btn-confirm-remove');
+  if (btnConfirmRemove) {
+    btnConfirmRemove.onclick = () => {
+      /* Confirmation state is the interaction — no removal */
+      if (confirmBox) confirmBox.classList.remove('open');
+      if (btnRemove)  btnRemove.style.display = '';
+    };
+  }
 }
 
-renderAll();
+
+/* ============================================================
+   PHASE 3 — S2: CLIENT SCORE VIEW
+   Spec § S2 — Client Score View
+   Primary user: Marcus (contractor). Viewport: 390px mobile.
+============================================================ */
+
+/* S2 arc geometry constants
+   Spec: "SVG circle arc. Arc sweeps from 7 o'clock to 5 o'clock (220 degree sweep)."
+   Math: gap of 140° centered at 6 o'clock (SVG 90°).
+         Arc starts at ~8:20 o'clock = SVG 160° from 3 o'clock.
+         rotate(160, cx, cy) aligns natural SVG start (3 o'clock) → arc start.
+============================================================ */
+const S2_R             = 85;
+const S2_CX            = 110;
+const S2_CY            = 110;
+const S2_CIRCUMFERENCE = 2 * Math.PI * S2_R;          /* ≈ 534.07 */
+const S2_ARC220        = (220 / 360) * S2_CIRCUMFERENCE; /* ≈ 326.49 */
+const S2_ARC_ROTATION  = 160; /* rotate degrees in SVG transform */
+
+/* S2 factor definitions (same plain-language labels as S1 detail panel)
+   Spec § S2 accordion: "Each row: factor plain language label, score out of 20, colored bar." */
+const S2_FACTOR_DEFS = [
+  { key: 'visibility',  label: 'Shows up in searches'          },
+  { key: 'momentum',    label: 'Getting more attention'        },
+  { key: 'engagement',  label: 'People are clicking & calling' },
+  { key: 'reputation',  label: 'Reviews and ratings'           },
+  { key: 'activity',    label: 'Profile is up to date'         },
+];
+
+/* Map factor score (0–20) → tier → color */
+function s2FactorColor(score) {
+  if (score >= 17) return tierColor('excellent');
+  if (score >= 13) return tierColor('good');
+  if (score >=  8) return tierColor('fair');
+  return tierColor('poor');
+}
+
+/* Build status sentence
+   Spec § S2 > Status sentence > Format rules:
+   - score increased: "You got [X] new reviews this week. Keep it up."
+   - score stable:    "Your profile is holding steady. Stay consistent."
+   - score decreased + reviewed:     "Your score dipped slightly. Pedro reviewed this [day]. Check-in [day]."
+   - score decreased + not reviewed: "Your score dipped slightly. Pedro will be in touch soon."
+============================================================ */
+function buildS2StatusSentence(c) {
+  const delta = c.score - c.scorePrevious;
+
+  if (delta > 0) {
+    return `You got ${delta} new reviews this week. Keep it up.`;
+  }
+
+  if (delta === 0) {
+    return 'Your profile is holding steady. Stay consistent.';
+  }
+
+  /* Score decreased */
+  if (c.operatorReviewedDate) {
+    const reviewedStr = `Pedro reviewed this ${fmtDate(c.operatorReviewedDate)}.`;
+    const checkinStr  = c.checkinDate ? ` Check-in ${fmtDate(c.checkinDate)}.` : '';
+    return `Your score dipped slightly. ${reviewedStr}${checkinStr}`;
+  }
+
+  return 'Your score dipped slightly. Pedro will be in touch soon.';
+}
+
+/* Build the complete S2 HTML for a given client.
+   Returns a string — caller inserts it into a container, then calls initS2(c).
+============================================================ */
+function buildS2Html(c) {
+  const tc          = tierColor(getTier(c.score));
+  const dc          = deltaColor(c.score, c.scorePrevious);
+  const dt          = deltaText(c.score, c.scorePrevious);
+  const tierLabel   = tierLabelText(getTier(c.score));
+  const statusText  = buildS2StatusSentence(c);
+  const deltaLabel  = dt === '–' ? '– this week' : `${dt} this week`;
+  const tierUpgrade = getTierUpgrade(c.score, c.scorePrevious);
+
+  /* Score arc SVG
+     Background arc:  full 220° span in --border color.
+     Fill arc:        starts at S2_ARC220 (invisible); initS2Arc() animates to final value.
+     Spec: "stroke-dashoffset transition" with 400ms ease-out.
+  ============================================================ */
+  const arcBgDashArray = `${S2_ARC220.toFixed(2)} ${S2_CIRCUMFERENCE.toFixed(2)}`;
+  const arcFillDashArray = arcBgDashArray; /* same array; offset controls visible length */
+  const arcTransform = `rotate(${S2_ARC_ROTATION} ${S2_CX} ${S2_CY})`;
+
+  const arcSvg = `
+    <svg
+      class="s2-arc-svg"
+      viewBox="0 0 220 220"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <!-- Background arc: full 220° span, always visible -->
+      <circle
+        cx="${S2_CX}" cy="${S2_CY}" r="${S2_R}"
+        fill="none"
+        stroke="var(--border)"
+        stroke-width="10"
+        stroke-linecap="round"
+        stroke-dasharray="${arcBgDashArray}"
+        stroke-dashoffset="0"
+        transform="${arcTransform}"
+      />
+      <!-- Fill arc: animated by initS2Arc() after DOM insertion -->
+      <circle
+        id="s2-arc-fill"
+        cx="${S2_CX}" cy="${S2_CY}" r="${S2_R}"
+        fill="none"
+        stroke="${tc}"
+        stroke-width="10"
+        stroke-linecap="round"
+        stroke-dasharray="${arcFillDashArray}"
+        stroke-dashoffset="${S2_ARC220.toFixed(2)}"
+        transform="${arcTransform}"
+      />
+    </svg>
+  `;
+
+  /* Factor rows for accordion
+     Spec: "Each row: factor plain language label, score out of 20, colored bar.
+            No numbers beyond the bar — the bar length communicates the value."
+  ============================================================ */
+  const factorRowsHtml = S2_FACTOR_DEFS.map(f => {
+    const score  = c.factors[f.key];
+    const pct    = Math.round((score / 20) * 100);
+    const color  = s2FactorColor(score);
+    return `
+      <div class="s2-factor-row">
+        <span class="s2-factor-name">${f.label}</span>
+        <div class="s2-factor-bar-track">
+          <div class="s2-factor-bar-fill" style="width:${pct}%; background:${color};"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  /* Share button — only if tierUpgrade
+     Spec: "Only renders when the state object contains tierUpgrade: true" */
+  const shareBtnHtml = tierUpgrade
+    ? `<button class="s2-share-btn" id="s2-share-btn">Share your score</button>`
+    : '';
+
+  /* Delta indicator — conditionally hidden for score-increase animation
+     Spec § Feedback: "+N this week badge fades in 300ms after arc completes"
+     When score > scorePrevious (and not tierUpgrade): starts opacity:0, JS fades in. */
+  const deltaInitialStyle = (c.score > c.scorePrevious && !tierUpgrade)
+    ? 'opacity:0;'
+    : '';
+
+  return `
+    <div class="s2-screen" id="s2-screen">
+
+      <!-- 1. Wordmark
+           Spec: "Top center. 14px, weight 600, --text-secondary. Margin-top: 48px." -->
+      <div class="s2-wordmark">Go Local P<svg style="display:inline-block;vertical-align:middle;position:relative;top:-1px;margin:0 0.5px;" width="8" height="13" viewBox="0 0 11 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M5.5 0C2.46 0 0 2.46 0 5.5C0 9.63 5.5 18 5.5 18C5.5 18 11 9.63 11 5.5C11 2.46 8.54 0 5.5 0Z" fill="#EA4335"/><circle cx="5.5" cy="5.5" r="2.2" fill="white"/></svg>n</div>
+
+      <!-- 2. Score arc + pin tail — arc circle is the pin head, triangle fades below -->
+      <div class="s2-pin-wrapper">
+        <div class="s2-arc-container" aria-label="${c.name} score: ${c.score} out of 100, ${tierLabel}">
+          ${arcSvg}
+          <div class="s2-arc-inner">
+            <div class="s2-score-number">${c.score}</div>
+            <div class="s2-tier-label" style="color:${tc}">${tierLabel}</div>
+          </div>
+        </div>
+        <!-- Pin tail: triangle that tapers to a point and fades out -->
+        <svg class="s2-pin-tail" viewBox="0 0 80 90" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="pin-tail-grad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"   stop-color="${tc}" stop-opacity="0.55"/>
+              <stop offset="100%" stop-color="${tc}" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <polygon points="40,90 0,0 80,0" fill="url(#pin-tail-grad)"/>
+        </svg>
+      </div>
+
+      <!-- 3. Status sentence
+           Spec: "16px, weight 400, --text-primary. Centered. Margin-top: 24px from arc bottom." -->
+      <p class="s2-status-sentence">${escHtml(statusText)}</p>
+
+      <!-- 4. Delta indicator
+           Spec: "Direction arrow + number + 'this week' label. 14px, weight 500, tier color for direction."
+           Feedback: hides initially for score-increase clients (JS fades it in after arc). -->
+      <div class="s2-delta" id="s2-delta" style="color:${dc}; ${deltaInitialStyle}">
+        ${escHtml(deltaLabel)}
+      </div>
+
+      <!-- Operator note — rendered when the operator has written a note for this client -->
+      ${c.operatorNote ? `
+      <div class="s2-operator-note">
+        <div class="s2-operator-note-label">Note from Pedro</div>
+        <div class="s2-operator-note-text">${escHtml(c.operatorNote)}</div>
+      </div>` : ''}
+
+      <!-- Spacer: pushes drill-down to bottom portion of screen
+           Spec: "Located in the bottom 40% of the screen." -->
+      <div class="s2-spacer"></div>
+
+      <!-- 5. Drill-down tap target
+           Spec: "Minimum 48px height, full width minus 32px margin."
+                 "--border outline, 8px border-radius, 14px, weight 500, --text-primary."
+                 "On tap: expands an accordion below it." -->
+      <button class="s2-drill-btn" id="s2-drill-btn">
+        See what's driving your score <span class="s2-drill-chevron">↓</span>
+      </button>
+
+      <!-- Accordion: revealed on drill-down tap
+           Spec: "five factor scores as horizontal bar rows.
+                  Each row: factor plain language label, colored bar.
+                  No numbers beyond the bar." -->
+      <div class="s2-accordion" id="s2-accordion">
+        ${factorRowsHtml}
+      </div>
+
+      <!-- 6. Share button — conditional on tierUpgrade
+           Spec: "--score-green background, white text, 8px border-radius.
+                  On tap: confetti burst, then native share or clipboard fallback." -->
+      ${shareBtnHtml}
+
+    </div>
+  `;
+}
+
+/* Initialize S2 arc animation and bind S2 interactions.
+   Must be called after buildS2Html() output is in the DOM.
+   Spec: "400ms ease-out via stroke-dashoffset transition"
+   Feedback spec: tierUpgrade → confetti + vibrate
+                  score increase, no tier upgrade → arc from previous; delta fades in after arc.
+============================================================ */
+function initS2(c) {
+
+  /* --- Arc animation --- */
+  const fillEl = document.getElementById('s2-arc-fill');
+  if (fillEl) {
+    const finalOffset = S2_ARC220 * (1 - c.score / 100);
+
+    const startOffset = (c.score > c.scorePrevious && !getTierUpgrade(c.score, c.scorePrevious))
+      ? S2_ARC220 * (1 - c.scorePrevious / 100)
+      : S2_ARC220;
+
+    fillEl.style.strokeDashoffset = startOffset;
+
+    requestAnimationFrame(() => {
+      fillEl.style.transition = 'stroke-dashoffset 400ms ease-out';
+      fillEl.style.strokeDashoffset = finalOffset;
+
+      if (c.score > c.scorePrevious && !getTierUpgrade(c.score, c.scorePrevious)) {
+        const deltaEl = document.getElementById('s2-delta');
+        if (deltaEl) {
+          setTimeout(() => {
+            deltaEl.style.transition = 'opacity 300ms ease';
+            deltaEl.style.opacity    = '1';
+          }, 400);
+        }
+      }
+    });
+  }
+
+  /* --- Tier upgrade feedback --- */
+  if (getTierUpgrade(c.score, c.scorePrevious)) {
+    confetti({
+      particleCount: 150,
+      spread:        80,
+      origin:        { y: 0.55 },
+      useWorker:     false,
+      colors:        ['#EA4335', '#1A73E8', '#F9AB00', '#34A853']
+    });
+    if (navigator.vibrate) navigator.vibrate(200);
+  }
+
+  /* --- Drill-down accordion toggle --- */
+  const drillBtn  = document.getElementById('s2-drill-btn');
+  const accordion = document.getElementById('s2-accordion');
+  if (drillBtn && accordion) {
+    drillBtn.addEventListener('click', () => {
+      accordion.classList.toggle('open');
+      drillBtn.classList.toggle('open');
+    });
+  }
+
+  /* --- Share button --- */
+  if (getTierUpgrade(c.score, c.scorePrevious)) {
+    const shareBtn = document.getElementById('s2-share-btn');
+    if (shareBtn) {
+      shareBtn.addEventListener('click', () => handleS2Share(c));
+    }
+  }
+}
+
+/* Handle share button tap
+   Spec § S2 > Share button */
+function handleS2Share(c) {
+  const msg = `My Google presence score just hit ${tierLabelText(getTier(c.score))} with Go Local Pin. 📍`;
+
+  /* Always fire confetti first */
+  confetti({
+    particleCount: 100,
+    spread:        70,
+    origin:        { y: 0.6 },
+    useWorker:     false,
+    colors:        ['#EA4335', '#1A73E8', '#F9AB00', '#34A853']
+  });
+
+  if (navigator.share) {
+    /* Web Share API available */
+    navigator.share({ text: msg }).catch(() => {
+      /* User cancelled or error — fallback to clipboard */
+      copyAndToast(msg);
+    });
+  } else {
+    /* Fallback: clipboard + toast */
+    copyAndToast(msg);
+  }
+}
+
+/* Copy text and show "Copied to clipboard" toast */
+function copyAndToast(text) {
+  navigator.clipboard.writeText(text).catch(() => {});
+  showS2Toast('Copied to clipboard');
+}
+
+/* Show a temporary toast notification
+   Spec: "shows 'Copied to clipboard' toast." */
+function showS2Toast(msg) {
+  const toast = document.getElementById('s2-toast');
+  if (!toast) return;
+  toast.textContent = msg;
+  toast.classList.add('visible');
+  setTimeout(() => toast.classList.remove('visible'), 2400);
+}
+
+
+/* ============================================================
+   PHASE 3 — S3: CLIENT VIEW TOGGLE (stub — built in step 2)
+   Spec § S3: "When operator clicks 'Show Client View', the center panel
+               and right column are replaced by a centered mobile frame."
+   renderS3() is called from renderDetail() when state.clientViewActive is true.
+============================================================ */
+function renderS3() {
+  const panel   = document.getElementById('detail-panel');
+  const content = document.getElementById('detail-content');
+
+  /* No client selected — should not reach here normally (guard in renderControls) */
+  if (!state.selectedClientId) return;
+
+  const c = state.clients.find(cl => cl.id === state.selectedClientId);
+  if (!c) return;
+
+  /* Reset panel background (managed by wrapper class now) */
+  panel.style.background = '';
+
+  /* Build S3 layout:
+     - Toggle bar (label left, back link right)
+     - Device area with centered device frame
+     - Device frame contains S2 HTML for selected client
+     Spec § S3: toggle bar + device frame + roster remains functional */
+  content.className = 's3-wrapper';
+  content.innerHTML = `
+    <div class="s3-toggle-bar">
+      <span class="s3-toggle-label">Client View — ${escHtml(c.name)}</span>
+      <button class="s3-back-link" id="s3-back-btn">← Back to Operator View</button>
+    </div>
+    <div class="s3-device-area">
+      <div class="s3-device-frame" id="s3-device-frame">
+        ${buildS2Html(c)}
+      </div>
+    </div>
+  `;
+
+  /* Wire up back button
+     Spec: "Clicking the link sets clientViewActive back to false" */
+  document.getElementById('s3-back-btn').onclick = () => {
+    setState({ clientViewActive: false });
+  };
+
+  /* Initialize arc animation and interactions for the S2 rendered inside the frame
+     Spec § S2: arc animates on load; drill-down and share interactions wired
+     Use same pattern as standalone preview */
+  requestAnimationFrame(() => {
+    initS2(c);
+
+    /* Inside the device frame the s2-screen hides its scrollbar (webkit scrollbar: width 0).
+       When the accordion opens and the content height exceeds the device frame, the new
+       factor rows appear below the fold with no visible scroll indicator — the user sees
+       nothing. Fix: replace the drill button with a fresh clone (removes initS2's listener)
+       and re-attach a handler that scrolls the accordion into view after toggling open. */
+    requestAnimationFrame(() => {
+      const drillBtn  = document.getElementById('s2-drill-btn');
+      const accordion = document.getElementById('s2-accordion');
+      if (drillBtn && accordion) {
+        const fresh = drillBtn.cloneNode(true);
+        drillBtn.parentNode.replaceChild(fresh, drillBtn);
+        fresh.addEventListener('click', () => {
+          accordion.classList.toggle('open');
+          fresh.classList.toggle('open');
+        });
+      }
+
+      /* Same treatment for the share button — one clean listener */
+      if (getTierUpgrade(c.score, c.scorePrevious)) {
+        const shareBtn = document.getElementById('s2-share-btn');
+        if (shareBtn) {
+          const freshShare = shareBtn.cloneNode(true);
+          shareBtn.parentNode.replaceChild(freshShare, shareBtn);
+          freshShare.addEventListener('click', () => handleS2Share(c));
+        }
+      }
+    });
+  });
+}
+
+
+/* ============================================================
+   MASTER RENDER
+============================================================ */
+function render() {
+  renderRoster();
+  renderDetail();
+  renderControls();
+}
+
+/* Init */
+render();
+
+
+/* ============================================================
+   PHASE 3 — STANDALONE S2 PREVIEW
+   Spec: "if the URL contains ?view=client, render only S2 centered on the page
+          so it can be tested in isolation."
+   Uses Premier Air Solutions (client_005, tierUpgrade: true) for best demo —
+   showcases the full S2 experience including confetti and share button.
+============================================================ */
+(function initStandalonePreview() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('view') !== 'client') return;
+
+  /* Hide the operator dashboard */
+  document.getElementById('app').style.display = 'none';
+
+  /* Select preview client:
+     Prefer a client with tierUpgrade for full demo; fall back to first client. */
+  const previewClient = state.clients.find(c => getTierUpgrade(c.score, c.scorePrevious)) || state.clients[0];
+
+  /* Show the standalone wrapper and render S2 into the device frame */
+  const wrapper = document.getElementById('s2-preview-wrapper');
+  const device  = document.getElementById('s2-preview-device');
+
+  wrapper.style.display = 'flex';
+  device.innerHTML = buildS2Html(previewClient);
+
+  /* Initialize arc animation and interactions */
+  requestAnimationFrame(() => initS2(previewClient));
+})();
+
 </script>
 </body>
 </html>
